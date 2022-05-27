@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	fmt.Println("Loaded blink")
+	fmt.Println("Loaded blink\r\n")
 
 	led := machine.LED
 	led.Configure(machine.PinConfig{Mode: machine.PinOutput})
