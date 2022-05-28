@@ -29,7 +29,7 @@ func main() {
 	ch := make(chan bme280.Event)
 
 	// Create BME280 device
-	device, err := bme280.Config{}.New(ch)
+	device, err := bme280.SPIConfig{}.New(ch)
 	if err != nil {
 		stdout.Println(err)
 		os.Exit(-1)

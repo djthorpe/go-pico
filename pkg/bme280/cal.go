@@ -7,8 +7,8 @@ import (
 	. "github.com/djthorpe/go-pico/pkg/errors"
 
 	// Package imports
-	math32 "github.com/chewxy/math32"
-	//"github.com/djthorpe/go-pico/pkg/math32"
+	//math32 "github.com/chewxy/math32"
+	math32 "github.com/djthorpe/go-pico/pkg/math32"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,7 +71,7 @@ func (d *device) calibrate() (cal, error) {
 	var v cal
 
 	// Bulk read T1-T3, P1-P9
-	if err := d.i2c.ReadRegister(d.slave, uint8(BME280_REG_DIG_T1), data[:]); err != nil {
+	if err := d.readRegister(BME280_REG_DIG_T1, data[:]); err != nil {
 		return v, err
 	} else {
 		v.t1 = toUint16(data[0:])
@@ -89,14 +89,14 @@ func (d *device) calibrate() (cal, error) {
 	}
 
 	// Read H1
-	if err := d.i2c.ReadRegister(d.slave, uint8(BME280_REG_DIG_H1), data[0:1]); err != nil {
+	if err := d.readRegister(BME280_REG_DIG_H1, data[0:1]); err != nil {
 		return v, err
 	} else {
 		v.h1 = data[0]
 	}
 
 	// Read H2-H6
-	if err := d.i2c.ReadRegister(d.slave, uint8(BME280_REG_DIG_H2), data[0:9]); err != nil {
+	if err := d.readRegister(BME280_REG_DIG_H2, data[0:9]); err != nil {
 		return v, err
 	} else {
 		v.h2 = toInt16(data[0:])

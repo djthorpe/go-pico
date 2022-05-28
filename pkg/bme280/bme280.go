@@ -8,6 +8,7 @@ import (
 	// Package imports
 	pico "github.com/djthorpe/go-pico"
 	i2c "github.com/djthorpe/go-pico/pkg/i2c"
+	spi "github.com/djthorpe/go-pico/pkg/spi"
 
 	// Namespace imports
 	. "github.com/djthorpe/go-pico/pkg/errors"
@@ -16,16 +17,20 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 // TYPES
 
-type Config struct {
+type I2CConfig struct {
 	Bus   uint   // I2C Bus (0 or 1)
 	Speed uint32 // I2C Communication Speed in Hz, optional
 	Slave uint8  // BME280 Slave address, optional
 }
 
-type I2C interface{}
+type SPIConfig struct {
+	Bus   uint   // SPI Bus (0 or 1)
+	Speed uint32 // SPI Communication Speed in Hz, optional
+}
 
 type device struct {
 	i2c                    pico.I2C
+	spi                    pico.SPI
 	slave                  uint8
 	chipid, version        uint8
 	mode                   Mode
@@ -35,14 +40,16 @@ type device struct {
 	spi3w_en               bool
 	coefficients           cal
 	ch                     chan<- Event
+	d16                    [2]byte
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
 
 const (
-	DEFAULT_SPEED = 100 * 1000 // 100 kHz
-	DEFAULT_SLAVE = 0x77
+	DEFAULT_I2C_SPEED = 100 * 1000 // 100 kHz
+	DEFAULT_I2C_SLAVE = 0x77
+	DEFAULT_SPI_SPEED = 4 * 1000 * 1000 // 4Mhz
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -59,19 +66,44 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
 
-func (cfg Config) New(ch chan<- Event) (*device, error) {
+func (cfg I2CConfig) New(ch chan<- Event) (*device, error) {
 	this := new(device)
 
 	// Create I2C device
 	device, err := i2c.Config{
 		Bus:       cfg.Bus,
-		Frequency: cfg.Speed | DEFAULT_SPEED,
+		Frequency: cfg.Speed | DEFAULT_I2C_SPEED,
 	}.New()
 	if err != nil {
 		return nil, err
 	} else {
 		this.i2c = device
-		this.slave = cfg.Slave | DEFAULT_SLAVE
+		this.slave = cfg.Slave | DEFAULT_I2C_SLAVE
+	}
+
+	if err := this.sync(); err != nil {
+		return nil, err
+	}
+
+	// Set channel
+	this.ch = ch
+
+	// Return success
+	return this, nil
+}
+
+func (cfg SPIConfig) New(ch chan<- Event) (*device, error) {
+	this := new(device)
+
+	// Create SPI device
+	device, err := spi.Config{
+		Bus:       cfg.Bus,
+		Frequency: cfg.Speed | DEFAULT_SPI_SPEED,
+	}.New()
+	if err != nil {
+		return nil, err
+	} else {
+		this.spi = device
 	}
 
 	if err := this.sync(); err != nil {
@@ -90,7 +122,9 @@ func (cfg Config) New(ch chan<- Event) (*device, error) {
 
 func (d *device) String() string {
 	str := "<bme280"
-	str += fmt.Sprintf(" slave=0x%02X", d.slave)
+	if d.slave != 0 {
+		str += fmt.Sprintf(" slave=0x%02X", d.slave)
+	}
 	str += fmt.Sprintf(" chipid=0x%02X", d.chipid)
 	str += fmt.Sprintf(" version=0x%02X", d.version)
 	str += fmt.Sprint(" mode=", d.mode)
@@ -101,6 +135,14 @@ func (d *device) String() string {
 	str += fmt.Sprint(" filter=", d.filter)
 	str += fmt.Sprint(" spi3w_en=", d.spi3w_en)
 	str += fmt.Sprint(" coefficients=", d.coefficients)
+
+	if d.i2c != nil {
+		str += fmt.Sprint(" i2c=", d.i2c)
+	}
+	if d.spi != nil {
+		str += fmt.Sprint(" spi=", d.spi)
+	}
+
 	return str + ">"
 }
 

@@ -2,6 +2,7 @@ package bme280
 
 import (
 	// Namespace imports
+
 	"time"
 
 	. "github.com/djthorpe/go-pico/pkg/errors"
@@ -59,21 +60,21 @@ const (
 // PUBLIC METHODS
 
 func (d *device) ChipID() (uint8, error) {
-	return d.i2c.ReadRegister_Uint8(d.slave, uint8(BME280_REG_CHIPID))
+	return d.readRegister_Uint8(BME280_REG_CHIPID)
 }
 
 func (d *device) Version() (uint8, error) {
-	return d.i2c.ReadRegister_Uint8(d.slave, uint8(BME280_REG_VERSION))
+	return d.readRegister_Uint8(BME280_REG_VERSION)
 }
 
 // Read values mode, osrs_t, osrs_p, osrs_h
 func (d *device) Control() (Mode, Oversample, Oversample, Oversample, error) {
 	// Read control values
-	ctrl_meas, err := d.i2c.ReadRegister_Uint8(d.slave, uint8(BME280_REG_CONTROL))
+	ctrl_meas, err := d.readRegister_Uint8(BME280_REG_CONTROL)
 	if err != nil {
 		return 0, 0, 0, 0, err
 	}
-	ctrl_hum, err := d.i2c.ReadRegister_Uint8(d.slave, uint8(BME280_REG_CONTROLHUMID))
+	ctrl_hum, err := d.readRegister_Uint8(BME280_REG_CONTROLHUMID)
 	if err != nil {
 		return 0, 0, 0, 0, err
 	}
@@ -90,7 +91,7 @@ func (d *device) Control() (Mode, Oversample, Oversample, Oversample, error) {
 
 // Read values t_sb, filter, spi3w_en
 func (d *device) Config() (StandbyTime, Filter, bool, error) {
-	config, err := d.i2c.ReadRegister_Uint8(d.slave, uint8(BME280_REG_CONFIG))
+	config, err := d.readRegister_Uint8(BME280_REG_CONFIG)
 	if err != nil {
 		return 0, 0, false, err
 	}
@@ -106,7 +107,7 @@ func (d *device) Config() (StandbyTime, Filter, bool, error) {
 
 // Return current measuring and updating value
 func (d *device) Status() (bool, bool, error) {
-	status, err := d.i2c.ReadRegister_Uint8(d.slave, uint8(BME280_REG_STATUS))
+	status, err := d.readRegister_Uint8(BME280_REG_STATUS)
 	if err != nil {
 		return false, false, err
 	}
@@ -121,7 +122,7 @@ func (d *device) Status() (bool, bool, error) {
 
 // Reset the device using the complete power-on-reset procedure
 func (d *device) Reset() error {
-	if err := d.i2c.WriteRegister_Uint8(d.slave, uint8(BME280_REG_SOFTRESET), BME280_SOFTRESET_VALUE); err != nil {
+	if err := d.writeRegister_Uint8(BME280_REG_SOFTRESET, BME280_SOFTRESET_VALUE); err != nil {
 		return err
 	}
 	if err := d.wait(); err != nil {
@@ -135,7 +136,7 @@ func (d *device) Reset() error {
 // Read raw sample values
 func (d *device) Read() ([8]byte, error) {
 	var data [8]byte
-	if err := d.i2c.ReadRegister(d.slave, uint8(BME280_REG_PRESSUREDATA), data[:]); err != nil {
+	if err := d.readRegister(BME280_REG_PRESSUREDATA, data[:]); err != nil {
 		return data, err
 	} else {
 		return data, nil
@@ -145,7 +146,7 @@ func (d *device) Read() ([8]byte, error) {
 // Set mode
 func (d *device) SetMode(mode Mode) error {
 	ctrl_meas := uint8(d.osrs_t)<<5 | uint8(d.osrs_p)<<2 | uint8(mode)
-	if err := d.i2c.WriteRegister_Uint8(d.slave, uint8(BME280_REG_CONTROL), ctrl_meas); err != nil {
+	if err := d.writeRegister_Uint8(BME280_REG_CONTROL, ctrl_meas); err != nil {
 		return err
 	}
 	if mode_, _, _, _, err := d.Control(); err != nil {
@@ -163,7 +164,7 @@ func (d *device) SetMode(mode Mode) error {
 func (d *device) SetTempOversample(osrs_t Oversample) error {
 	osrs_p := d.osrs_p
 	ctrl_meas := uint8(osrs_t&BME280_OVERSAMPLE_MAX)<<5 | uint8(osrs_p&BME280_OVERSAMPLE_MAX)<<2 | uint8(d.mode&BME280_MODE_MAX)
-	if err := d.i2c.WriteRegister_Uint8(d.slave, uint8(BME280_REG_CONTROL), ctrl_meas); err != nil {
+	if err := d.writeRegister_Uint8(BME280_REG_CONTROL, ctrl_meas); err != nil {
 		return err
 	} else if err := d.wait(); err != nil {
 		return err
@@ -182,7 +183,7 @@ func (d *device) SetTempOversample(osrs_t Oversample) error {
 func (d *device) SetPressureOversample(osrs_p Oversample) error {
 	osrs_t := d.osrs_t
 	ctrl_meas := uint8(osrs_t&BME280_OVERSAMPLE_MAX)<<5 | uint8(osrs_p&BME280_OVERSAMPLE_MAX)<<2 | uint8(d.mode&BME280_MODE_MAX)
-	if err := d.i2c.WriteRegister_Uint8(d.slave, uint8(BME280_REG_CONTROL), ctrl_meas); err != nil {
+	if err := d.writeRegister_Uint8(BME280_REG_CONTROL, ctrl_meas); err != nil {
 		return err
 	} else if err := d.wait(); err != nil {
 		return err
@@ -199,7 +200,7 @@ func (d *device) SetPressureOversample(osrs_p Oversample) error {
 }
 
 func (d *device) SetHumidityOversample(osrs_h Oversample) error {
-	if err := d.i2c.WriteRegister_Uint8(d.slave, uint8(BME280_REG_CONTROLHUMID), uint8(osrs_h&BME280_OVERSAMPLE_MAX)); err != nil {
+	if err := d.writeRegister_Uint8(BME280_REG_CONTROLHUMID, uint8(osrs_h&BME280_OVERSAMPLE_MAX)); err != nil {
 		return err
 	} else if err := d.wait(); err != nil {
 		return err
@@ -231,5 +232,55 @@ func (d *device) wait() error {
 			}
 			time.Sleep(time.Millisecond)
 		}
+	}
+}
+
+func (d *device) readRegister(r register, data []uint8) error {
+	switch {
+	case d.i2c != nil:
+		return d.i2c.ReadRegister(d.slave, uint8(r), data)
+	case d.spi != nil:
+		// MSB is 0 for write and 1 for read.
+		read := make([]byte, len(data)+1)
+		write := make([]byte, len(read))
+		// Rest of the write buffer is ignored
+		write[0] = uint8(r)
+		if err := d.spi.Transfer(write, read); err != nil {
+			return err
+		}
+		copy(data, read[1:])
+		return nil
+	default:
+		return ErrBadParameter
+	}
+}
+
+func (d *device) readRegister_Uint8(r register) (uint8, error) {
+	switch {
+	case d.i2c != nil:
+		return d.i2c.ReadRegister_Uint8(d.slave, uint8(r))
+	case d.spi != nil:
+		if err := d.spi.Transfer([]byte{uint8(r | 0x80), 0}, d.d16[:]); err != nil {
+			return 0, err
+		} else {
+			return d.d16[1], nil
+		}
+	default:
+		return 0, ErrBadParameter
+	}
+}
+
+func (d *device) writeRegister_Uint8(r register, v uint8) error {
+	switch {
+	case d.i2c != nil:
+		return d.i2c.WriteRegister_Uint8(d.slave, uint8(r), v)
+	case d.spi != nil:
+		if err := d.spi.Transfer([]byte{uint8(r & BME280_REG_SPI_WRITE), v}, d.d16[:]); err != nil {
+			return err
+		} else {
+			return nil
+		}
+	default:
+		return ErrBadParameter
 	}
 }
