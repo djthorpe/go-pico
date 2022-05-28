@@ -2,6 +2,9 @@ package bme280
 
 import "time"
 
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS
+
 func toOversampleNumber(value Oversample) float64 {
 	switch value {
 	case BME280_OVERSAMPLE_SKIP:
@@ -57,4 +60,12 @@ func toStandbyTime(value StandbyTime) time.Duration {
 	default:
 		return 0
 	}
+}
+
+func toUint16(v []byte) uint16 {
+	return uint16(v[1])<<8 | uint16(v[0])
+}
+
+func toInt16(v []byte) int16 {
+	return int16(v[1])<<8 | int16(v[0])
 }

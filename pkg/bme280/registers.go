@@ -1,6 +1,9 @@
 package bme280
 
 import (
+	// Namespace imports
+	"time"
+
 	. "github.com/djthorpe/go-pico/pkg/errors"
 )
 
@@ -47,6 +50,9 @@ const (
 const (
 	// Write mask
 	BME280_REG_SPI_WRITE register = 0x7F
+
+	// Timeout for measuring
+	BME280_TIMEOUT = time.Millisecond * 500
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -126,37 +132,14 @@ func (d *device) Reset() error {
 	return d.sync()
 }
 
-// Read raw temperature value
-func (d *device) Temperature() (int32, error) {
-	data := make([]uint8, 3)
-	if err := d.i2c.ReadRegister(d.slave, uint8(BME280_REG_TEMPDATA), data); err != nil {
-		return 0, err
+// Read raw sample values
+func (d *device) Read() ([8]byte, error) {
+	var data [8]byte
+	if err := d.i2c.ReadRegister(d.slave, uint8(BME280_REG_PRESSUREDATA), data[:]); err != nil {
+		return data, err
+	} else {
+		return data, nil
 	}
-
-	// Return raw temperature value
-	return ((int32(data[0]) << 16) | (int32(data[1]) << 8) | int32(data[2])) >> 4, nil
-}
-
-// Read raw pressure value, assumes temperature has already been read
-func (d *device) Pressure() (int32, error) {
-	data := make([]uint8, 3)
-	if err := d.i2c.ReadRegister(d.slave, uint8(BME280_REG_PRESSUREDATA), data); err != nil {
-		return 0, err
-	}
-
-	// Return raw pressure value
-	return ((int32(data[0]) << 16) | (int32(data[1]) << 8) | int32(data[2])) >> 4, nil
-}
-
-// Read raw humidity value, assumes temperature has already been read
-func (d *device) Humidity() (int32, error) {
-	data := make([]uint8, 2)
-	if err := d.i2c.ReadRegister(d.slave, uint8(BME280_REG_HUMIDDATA), data); err != nil {
-		return 0, err
-	}
-
-	// Return raw humidity value
-	return (int32(data[0]) << 8) | int32(data[1]), nil
 }
 
 // Set mode
@@ -237,14 +220,16 @@ func (d *device) SetHumidityOversample(osrs_h Oversample) error {
 
 func (d *device) wait() error {
 	// Wait for no measuring or updating
-	// TODO: TIMEOUT
+	// TODO: Timeout
 	for {
-		if measuring, updating, err := d.Status(); err != nil {
-			return err
-		} else if measuring == false && updating == false {
-			break
+		select {
+		default:
+			if measuring, updating, err := d.Status(); err != nil {
+				return err
+			} else if measuring == false && updating == false {
+				return nil
+			}
+			time.Sleep(time.Millisecond)
 		}
 	}
-	// Return success
-	return nil
 }

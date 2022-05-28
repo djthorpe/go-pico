@@ -9,3 +9,15 @@ type I2C interface {
 	// Write
 	WriteRegister_Uint8(slave, register, data uint8) error
 }
+
+type UART interface {
+	// Print
+	Print(args ...interface{})
+	Println(args ...interface{})
+	Printf(v string, args ...interface{})
+}
+
+type BME280 interface {
+	// One-shot Measurement
+	Sample() error
+}

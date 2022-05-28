@@ -1,12 +1,16 @@
 package bme280
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	// Package imports
 	pico "github.com/djthorpe/go-pico"
 	i2c "github.com/djthorpe/go-pico/pkg/i2c"
+
+	// Namespace imports
+	. "github.com/djthorpe/go-pico/pkg/errors"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -29,19 +33,8 @@ type device struct {
 	t_sb                   StandbyTime
 	filter                 Filter
 	spi3w_en               bool
-}
-
-// calibration data
-type cal struct {
-	T1                             uint16
-	T2, T3                         int16
-	P1                             uint16
-	P2, P3, P4, P5, P6, P7, P8, P9 int16
-	H1                             uint8
-	H2                             int16
-	H3                             uint8
-	H4, H5                         int16
-	H6                             int8
+	coefficients           cal
+	ch                     chan<- Event
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -66,7 +59,7 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
 
-func (cfg Config) New() (*device, error) {
+func (cfg Config) New(ch chan<- Event) (*device, error) {
 	this := new(device)
 
 	// Create I2C device
@@ -84,6 +77,9 @@ func (cfg Config) New() (*device, error) {
 	if err := this.sync(); err != nil {
 		return nil, err
 	}
+
+	// Set channel
+	this.ch = ch
 
 	// Return success
 	return this, nil
@@ -104,6 +100,7 @@ func (d *device) String() string {
 	str += fmt.Sprint(" t_sb=", d.t_sb)
 	str += fmt.Sprint(" filter=", d.filter)
 	str += fmt.Sprint(" spi3w_en=", d.spi3w_en)
+	str += fmt.Sprint(" coefficients=", d.coefficients)
 	return str + ">"
 }
 
@@ -140,12 +137,12 @@ func (d *device) sync() error {
 		d.spi3w_en = spi3w_en
 	}
 
-	// Read calibration data
-	t1, err := d.i2c.ReadRegister_Uint16(d.slave, uint8(BME280_REG_DIG_T1))
-	if err != nil {
+	// Read calibration coefficients
+	if coefficients, err := d.calibrate(); err != nil {
 		return err
+	} else {
+		d.coefficients = coefficients
 	}
-	fmt.Println("t1=", t1)
 
 	// Return success
 	return nil
@@ -154,22 +151,20 @@ func (d *device) sync() error {
 ////////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS
 
+// Sample sensor and emit an event on channel which includes the temperature,
+// humidity and pressure. ErrSampleSkipped is returned if no sample was taken,
+// ErrTimeout if either the device timed out or if the channel was blocked
 func (d *device) Sample() error {
-	// Save mode, if it's SLEEP then return to sleep afterwards
-	mode := d.mode
+	var event Event
 
 	// Wait for no measuring or updating
-	// TODO: Timeout
-	for {
-		if measuring, updating, err := d.Status(); err != nil {
-			return err
-		} else if measuring == false && updating == false {
-			break
-		}
+	if err := d.wait(); err != nil {
+		return err
 	}
 
 	// Set mode of operation if we're in FORCED or SLEEP mode, and wait until we
 	// can read the measurement for the correct amount of time
+	mode := d.mode
 	if mode == BME280_MODE_FORCED || mode == BME280_MODE_SLEEP {
 		if err := d.SetMode(BME280_MODE_FORCED); err != nil {
 			return err
@@ -178,22 +173,41 @@ func (d *device) Sample() error {
 		time.Sleep(toMeasurementTime(d.osrs_t, d.osrs_p, d.osrs_h))
 	}
 
-	// Read temperature, return error if temperature reading is skipped
-	adc_t, err := d.Temperature()
-	if err != nil {
-		return err
-	}
-	adc_p, err := d.Pressure()
-	if err != nil {
-		return err
-	}
-	adc_h, err := d.Humidity()
+	// Read samples
+	data, err := d.Read()
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("temp=%04X pressure=%04X humidity=%04X\n", adc_t, adc_p, adc_h)
+	// Convert to calibrated values
+	tvalue, tfine, err := toTemperature(data, d.coefficients)
+	if errors.Is(err, ErrSampleSkipped) {
+		return ErrSampleSkipped
+	} else {
+		event.Type |= Temperature
+		event.Temperature = tvalue
+	}
+	pvalue, err := toPressure(data, tfine, d.coefficients)
+	if err == nil {
+		event.Type |= Pressure
+		event.Pressure = pvalue
+		avalue, err := toAltitude(tvalue, pvalue, 101325*1000)
+		if err == nil {
+			event.Type |= Altitude
+			event.Altitude = avalue
+		}
+	}
+	hvalue, err := toHumidity(data, tfine, d.coefficients)
+	if err == nil {
+		event.Type |= Humidity
+		event.Humidity = hvalue
+	}
 
-	// Return success
-	return nil
+	// Emit the event, or return ErrTimeout
+	select {
+	case d.ch <- event:
+		return nil
+	default:
+		return ErrTimeout
+	}
 }

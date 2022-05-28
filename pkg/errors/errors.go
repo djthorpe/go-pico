@@ -6,6 +6,8 @@ const (
 	ErrSuccess Error = iota
 	ErrBadParameter
 	ErrUnexpectedValue
+	ErrSampleSkipped
+	ErrTimeout
 )
 
 func (e Error) Error() string {
@@ -14,6 +16,10 @@ func (e Error) Error() string {
 		return "ErrBadParameter"
 	case ErrUnexpectedValue:
 		return "ErrUnexpectedValue"
+	case ErrSampleSkipped:
+		return "ErrSampleSkipped"
+	case ErrTimeout:
+		return "ErrTimeout"
 	default:
 		return "Undefined error"
 	}
