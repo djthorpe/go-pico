@@ -1,4 +1,4 @@
-//go:build rpi
+//go:build linux
 
 package spi
 
@@ -7,11 +7,10 @@ import (
 	"os"
 
 	// Namespace imports
-	//. "github.com/djthorpe/go-pico/pkg/errors"
 	. "github.com/djthorpe/go-pico/pkg/linux"
 
 	// Package imports
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -1,4 +1,4 @@
-// go:build rpi
+// go:build linux
 
 package spi_test
 
