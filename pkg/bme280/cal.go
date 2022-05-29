@@ -101,8 +101,8 @@ func (d *device) calibrate() (cal, error) {
 	} else {
 		v.h2 = toInt16(data[0:])
 		v.h3 = data[2]
-		v.h4 = int16(data[3]<<4) | int16(data[4]&0x0F)
-		v.h5 = int16(data[5]<<4) | int16(data[4]>>4)
+		v.h4 = int16(data[3])<<4 | int16(data[4])&0x0F
+		v.h5 = int16(data[5])<<4 | int16(data[4])>>4
 		v.h6 = int8(data[6])
 	}
 
@@ -167,31 +167,28 @@ func toPressure(data [8]byte, tfine int32, coefficients cal) (int32, error) {
 // toHumidity returns hvalue which is relative humidity in hundredths of a percent.
 // ErrSampleSkipped is returned if humidity is not available
 func toHumidity(data [8]byte, tfine int32, coefficients cal) (int32, error) {
-	raw := int32(data[6])<<8 | int32(data[7])
+	raw := int32(uint32(data[6])<<8 | uint32(data[7]))
 	if raw == BME280_SKIPHUMID_VALUE {
 		return 0, ErrSampleSkipped
 	}
 
 	// Offset tfine
-	h := float64(tfine) - 76800.0
+	h := float32(tfine) - 76800.0
 	if h == 0 {
 		return 0, ErrSampleSkipped
 	}
 
-	// Calculate humidity using float64
-	h = (float64(raw) - (float64(coefficients.h4)*64.0 + float64(coefficients.h5)/16384.8*h)) * (float64(coefficients.h2) / 65536.0 * (1.0 + float64(coefficients.h6)/67108864.0*h*(1.0+float64(coefficients.h3)/67108864.0*h)))
-	h = h * (1.0 - float64(coefficients.h1)*h/524288.0)
+	// Calibrate
+	var1 := float32(raw) - (float32(coefficients.h4)*64.0 +
+		(float32(coefficients.h5) / 16384.0 * h))
 
-	// Trim value between 0-100%
-	/*	switch {
-		case h > 100.0:
-			h = 100
-		case h < 0.0:
-			h = 0
-		}
-	*/
-	// Return success
-	return int32(h * 100), nil
+	var2 := float32(coefficients.h2) / 65536.0 *
+		(1.0 + float32(coefficients.h6)/67108864.0*h*
+			(1.0+float32(coefficients.h3)/67108864.0*h))
+
+	h = var1 * var2
+	h = h * (1 - float32(coefficients.h1)*h/524288)
+	return int32(100 * h), nil
 }
 
 const (

@@ -5,7 +5,7 @@ TINYGO := $(shell which tinygo)
 # Paths to locations, etc
 BUILD_DIR := "build"
 CMD_DIR := $(filter-out cmd/README.md, $(wildcard cmd/*))
-BUILD_FLAGS := ""
+BUILD_FLAGS := -target pico
 
 # Targets
 all: pico
@@ -14,7 +14,7 @@ pico: $(CMD_DIR)
 
 $(CMD_DIR): dependencies mkdir FORCE
 	@echo Build cmd $(notdir $@)
-	@${TINYGO} build -target pico -o ${BUILD_DIR}/$(notdir $@).uf2 ./$@
+	@${TINYGO} build ${BUILD_FLAGS} -o ${BUILD_DIR}/$(notdir $@).uf2 ./$@
 
 FORCE:
 
