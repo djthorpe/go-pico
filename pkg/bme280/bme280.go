@@ -9,6 +9,7 @@ import (
 	pico "github.com/djthorpe/go-pico"
 	i2c "github.com/djthorpe/go-pico/pkg/i2c"
 	spi "github.com/djthorpe/go-pico/pkg/spi"
+	multierror "github.com/hashicorp/go-multierror"
 
 	// Namespace imports
 	. "github.com/djthorpe/go-pico/pkg/errors"
@@ -39,7 +40,7 @@ type device struct {
 	filter                 Filter
 	spi3w_en               bool
 	coefficients           cal
-	ch                     chan<- Event
+	ch                     chan Event
 	d16                    [2]byte
 }
 
@@ -60,13 +61,13 @@ const (
 	BME280_SKIPTEMP_VALUE     = 0x80000
 	BME280_SKIPPRESSURE_VALUE = 0x80000
 	BME280_SKIPHUMID_VALUE    = 0x8000
-	BME280_CALIBRATION_SIZE   = 33
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
 
-func (cfg I2CConfig) New(ch chan<- Event) (*device, error) {
+// Create BME280 device on the I2C bus
+func (cfg I2CConfig) New() (*device, error) {
 	this := new(device)
 
 	// Create I2C device
@@ -86,13 +87,14 @@ func (cfg I2CConfig) New(ch chan<- Event) (*device, error) {
 	}
 
 	// Set channel
-	this.ch = ch
+	this.ch = make(chan Event)
 
 	// Return success
 	return this, nil
 }
 
-func (cfg SPIConfig) New(ch chan<- Event) (*device, error) {
+// Create BME280 device on the SPI bus
+func (cfg SPIConfig) New() (*device, error) {
 	this := new(device)
 
 	// Create SPI device
@@ -111,10 +113,42 @@ func (cfg SPIConfig) New(ch chan<- Event) (*device, error) {
 	}
 
 	// Set channel
-	this.ch = ch
+	this.ch = make(chan Event)
 
 	// Return success
 	return this, nil
+}
+
+func (d *device) Close() error {
+	var result error
+
+	// Close the channel
+	if d.ch != nil {
+		close(d.ch)
+		d.ch = nil
+	}
+
+	// Put device into sleep state
+	if err := d.SetMode(BME280_MODE_SLEEP); err != nil {
+		result = multierror.Append(result, err)
+	}
+
+	// Close underlying devices
+	if d.i2c != nil {
+		if err := d.i2c.Close(); err != nil {
+			result = multierror.Append(result, err)
+		}
+		d.i2c = nil
+	}
+	if d.spi != nil {
+		if err := d.spi.Close(); err != nil {
+			result = multierror.Append(result, err)
+		}
+		d.spi = nil
+	}
+
+	// Return any errors
+	return result
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -147,51 +181,12 @@ func (d *device) String() string {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// PRIVATE METHODS
-
-func (d *device) sync() error {
-	// Read ChipId and Version
-	if chipid, err := d.ChipID(); err != nil {
-		return err
-	} else if version, err := d.Version(); err != nil {
-		return err
-	} else {
-		d.chipid = chipid
-		d.version = version
-	}
-
-	// Read control values
-	if mode, osrs_t, osrs_p, osrs_h, err := d.Control(); err != nil {
-		return err
-	} else {
-		d.mode = mode
-		d.osrs_t = osrs_t
-		d.osrs_h = osrs_h
-		d.osrs_p = osrs_p
-	}
-
-	// Read config values
-	if t_sb, filter, spi3w_en, err := d.Config(); err != nil {
-		return err
-	} else {
-		d.t_sb = t_sb
-		d.filter = filter
-		d.spi3w_en = spi3w_en
-	}
-
-	// Read calibration coefficients
-	if coefficients, err := d.calibrate(); err != nil {
-		return err
-	} else {
-		d.coefficients = coefficients
-	}
-
-	// Return success
-	return nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS
+
+// Return event channel
+func (d *device) C() <-chan Event {
+	return d.ch
+}
 
 // Sample sensor and emit an event on channel which includes the temperature,
 // humidity and pressure. ErrSampleSkipped is returned if no sample was taken,
@@ -252,4 +247,48 @@ func (d *device) Sample() error {
 	default:
 		return ErrTimeout
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS
+
+func (d *device) sync() error {
+	// Read ChipId and Version
+	if chipid, err := d.ChipID(); err != nil {
+		return err
+	} else if version, err := d.Version(); err != nil {
+		return err
+	} else {
+		d.chipid = chipid
+		d.version = version
+	}
+
+	// Read control values
+	if mode, osrs_t, osrs_p, osrs_h, err := d.Control(); err != nil {
+		return err
+	} else {
+		d.mode = mode
+		d.osrs_t = osrs_t
+		d.osrs_h = osrs_h
+		d.osrs_p = osrs_p
+	}
+
+	// Read config values
+	if t_sb, filter, spi3w_en, err := d.Config(); err != nil {
+		return err
+	} else {
+		d.t_sb = t_sb
+		d.filter = filter
+		d.spi3w_en = spi3w_en
+	}
+
+	// Read calibration coefficients
+	if coefficients, err := d.calibrate(); err != nil {
+		return err
+	} else {
+		d.coefficients = coefficients
+	}
+
+	// Return success
+	return nil
 }

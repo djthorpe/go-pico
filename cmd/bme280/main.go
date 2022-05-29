@@ -25,11 +25,8 @@ func main() {
 
 	stdout.Println("=> bme280")
 
-	// Create a channel to receive events in background
-	ch := make(chan bme280.Event)
-
 	// Create BME280 device
-	device, err := bme280.SPIConfig{}.New(ch)
+	device, err := bme280.SPIConfig{}.New()
 	if err != nil {
 		stdout.Println(err)
 		os.Exit(-1)
@@ -58,11 +55,11 @@ func main() {
 	// Print device info
 	stdout.Println(device)
 
-	// Sample in the background
-	go sample(device, stdout, time.Millisecond*1000)
+	// Receive in the background
+	go receive(stdout, device.C())
 
-	// Receive in the foreground (blocking)
-	receive(stdout, ch)
+	// Sample in the foreground, once per second
+	sample(device, stdout, time.Millisecond*1000)
 }
 
 func sample(device BME280, stdout UART, frequency time.Duration) {
@@ -76,12 +73,9 @@ func sample(device BME280, stdout UART, frequency time.Duration) {
 	}
 }
 
-func receive(stdout UART, ch chan bme280.Event) {
+func receive(stdout UART, ch <-chan bme280.Event) {
 	// Output events in the foreground
-	for {
-		select {
-		case evt := <-ch:
-			stdout.Println(evt)
-		}
+	for evt := range ch {
+		stdout.Println(evt)
 	}
 }

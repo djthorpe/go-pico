@@ -79,6 +79,11 @@ func (cfg Config) New() (*device, error) {
 	return this, nil
 }
 
+func (d *device) Close() error {
+	// No close implementation on pico
+	return nil
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 

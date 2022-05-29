@@ -39,7 +39,7 @@ func (cfg Config) New() (*device, error) {
 		this.sda = machine.I2C1_SDA_PIN
 		this.scl = machine.I2C1_SCL_PIN
 	default:
-		return nil, ErrBadParameter
+		return nil, ErrBadParameter.With("i2c invalid bus: ", cfg.Bus)
 	}
 
 	// Initialise the device
@@ -57,6 +57,11 @@ func (cfg Config) New() (*device, error) {
 
 	// Return success
 	return this, nil
+}
+
+func (d *device) Close() error {
+	// No close implementation on pico
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
