@@ -126,13 +126,13 @@ want to connect a reset button to the Pico and connect the default UART to your 
 |          | 19  | 22  |          |
 |          | 20  | 21  |          |
 
-Connect Pins 28 and 30 to a push button. For the Raspberry Pi the pinouts are as follows (orientating the device face-up so the power port is at the top left). Connect **TX to RX** and **RX to TX** on the devices.
+Connect Pins 28 and 30 to a push button. For the Raspberry Pi, orientating the device face-up so the power port is at the top left, the pinouts are as follows:
 
 | Wire     | Pin | Pin | Wire     |
 |----------|-----|-----|----------|
 |          |  1  |  2  |          |
 |          |  3  |  4  |          |
-|          |  5  |  6  |          |
+|          |  5  |  6  | GND      |
 |          |  7  |  8  | UART  TX |
 |          |  9  | 10  | UART  RX |
 |          | 11  | 12  |          |
@@ -151,7 +151,7 @@ Connect Pins 28 and 30 to a push button. For the Raspberry Pi the pinouts are as
 |          | 37  | 38  |          |
 |          | 39  | 40  |          |
 
-Set up **minicom** on your Raspberry Pi:
+Connect **TX to RX** and **RX to TX** on the devices, and pair the **GND** connections. Set up **minicom** on your Raspberry Pi:
 
 ```bash
 sudo usermod -a -G tty ${USER}
@@ -215,14 +215,15 @@ import (
 	// Modules
 	gpio "github.com/djthorpe/go-pico/pkg/gpio"
 	uart "github.com/djthorpe/go-pico/pkg/uart"
+
+	// Namespace imports
+	. "github.com/djthorpe/go-pico"
 )
 
 var (
 	UARTConfig = uart.Config{BaudRate: 115200, DataBits: 8, StopBits: 1}
-	LEDPin     = gpio.Pin(25)
-	GPIOConfig = gpio.Config{
-		Out: []gpio.Pin{LEDPin},
-	}
+	LEDPin     = Pin(25)
+	GPIOConfig = gpio.Config{Out: []Pin{LEDPin}}
 )
 
 func main() {
@@ -251,8 +252,9 @@ func main() {
 }
 ```
 
-Two Pico devices are used, the UART and the GPIO. The configuration
-is defined right at the top (note the LED pin is listed as [GP25 here](https://datasheets.raspberrypi.com/pico/Pico-R3-A4-Pinout.pdf). Then, within the `main` function, the devices are setup and an endless loop is entered
+Two pico "devices" are used, the UART and the GPIO. The configuration
+is defined right at the top (note the LED pin is listed as [GP25 here](https://datasheets.raspberrypi.com/pico/Pico-R3-A4-Pinout.pdf).
+Then, within the `main` function, the devices are setup and an endless loop is entered
 to switch on the LED for 800ms, then off for 200ms.
 
 ## Blink on the Raspberry Pi
@@ -265,4 +267,31 @@ cd ${HOME}/projects/go-pico && make cmd/rpi/blink
 ./build/blink
 ```
 
-This code expects an LED on 
+This code expects an LED on GPIO22 on the Raspberry Pi:
+
+| Wire     | Pin | Pin | Wire     |
+|----------|-----|-----|----------|
+|          |  1  |  2  |          |
+|          |  3  |  4  |          |
+|          |  5  |  6  | GND      |
+|          |  7  |  8  | UART  TX |
+|          |  9  | 10  | UART  RX |
+|          | 11  | 12  |          |
+|          | 13  | 14  | GND      |
+| GPIO22   | 15  | 16  |          |
+|          | 17  | 18  |          |
+|          | 19  | 20  |          |
+|          | 21  | 22  |          |
+|          | 23  | 24  |          |
+|          | 25  | 26  |          |
+|          | 27  | 28  |          |
+|          | 29  | 30  |          |
+|          | 31  | 32  |          |
+|          | 33  | 34  |          |
+|          | 35  | 36  |          |
+|          | 37  | 38  |          |
+|          | 39  | 40  |          |
+
+In order to wire up an LED, connect a resistor and LED in series between the GPIO22 and GND
+pins. The orientation of the LED should be that the longer lead (anode) is connected through
+the resistor to GPIO22.

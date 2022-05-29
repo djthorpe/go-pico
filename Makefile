@@ -22,7 +22,7 @@ $(PICO_CMD_DIR): dependencies mkdir FORCE
 
 $(RPI_CMD_DIR): dependencies mkdir FORCE
 	@echo Build rpi $(notdir $@)
-	@${GO} build ${RPI_BUILD_FLAGS} -o ${BUILD_DIR}/$(notdir $@).uf2 ./$@
+	@${GO} build ${RPI_BUILD_FLAGS} -o ${BUILD_DIR}/$(notdir $@) ./$@
 
 FORCE:
 

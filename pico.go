@@ -2,6 +2,14 @@ package pico
 
 import "io"
 
+////////////////////////////////////////////////////////////////////////////////
+// TYPES
+
+type Pin uint // GPIO Logical pin number
+
+////////////////////////////////////////////////////////////////////////////////
+// INTERFACES
+
 // I2C interface
 type I2C interface {
 	io.Closer
@@ -20,6 +28,14 @@ type SPI interface {
 
 	// Transfer data on SPI bus
 	Transfer(w, r []uint8) error
+}
+
+// GPIO interface
+type GPIO interface {
+	io.Closer
+
+	High(...Pin)
+	Low(...Pin)
 }
 
 // UART communication
