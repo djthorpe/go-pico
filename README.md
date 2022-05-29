@@ -295,3 +295,61 @@ This code expects an LED on GPIO22 on the Raspberry Pi:
 In order to wire up an LED, connect a resistor and LED in series between the GPIO22 and GND
 pins. The orientation of the LED should be that the longer lead (anode) is connected through
 the resistor to GPIO22.
+
+The **blink** application is very similar to the Pico-targetted version:
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"time"
+
+	// Modules
+	gpio "github.com/djthorpe/go-pico/pkg/gpio"
+
+	// Namespace imports
+	. "github.com/djthorpe/go-pico"
+)
+
+var (
+	LEDPin     = Pin(22) // GPIO22
+	GPIOConfig = gpio.Config{
+		Out: []Pin{LEDPin},
+	}
+)
+
+func main() {
+	// Create GPIO
+	gpio, err := GPIOConfig.New()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(-1)
+	}
+
+	fmt.Println("loaded", gpio)
+
+	// Blink lights
+	for {
+		gpio.High(LEDPin)
+		time.Sleep(time.Millisecond * 800)
+		gpio.Low(LEDPin)
+		time.Sleep(time.Millisecond * 200)
+	}
+}
+```
+
+
+## Further Examples
+
+There are further examples for both the Pico and the Raspberry Pi. In
+order to compile them, use the following commands:
+
+```bash
+make pico
+make rpi
+```
+
+All the applications are stored in the `build` folder, as before.
+
