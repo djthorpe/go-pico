@@ -1,3 +1,5 @@
+//go:build tinygo
+
 package spi
 
 import (
@@ -21,17 +23,6 @@ type device struct {
 	*machine.SPI
 	sck, sdo, sdi, scs machine.Pin
 }
-
-type Mode uint8
-
-////////////////////////////////////////////////////////////////////////////////
-// CONSTANTS
-
-const (
-	CPOLCPHA Mode = 0b11
-	CPOL     Mode = 0b10
-	CPHA     Mode = 0b01
-)
 
 ////////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
@@ -101,14 +92,8 @@ func (d *device) String() string {
 
 // Transfer writes then reads from SPI bus
 func (d *device) Transfer(w, r []byte) error {
-	//fmt.Println("tx=>", hex.EncodeToString(w))
 	d.scs.Low()
 	err := d.SPI.Tx(w, r)
 	d.scs.High()
-	/*if err == nil {
-		fmt.Println("  <=", hex.EncodeToString(r))
-	} else {
-		fmt.Println("  err: ", err)
-	}*/
 	return err
 }

@@ -7,8 +7,8 @@ type I2C interface {
 	io.Closer
 
 	// Read
-	ReadRegister_Uint8(slave, register uint8) (uint8, error)
 	ReadRegister(slave, register uint8, data []uint8) error
+	ReadRegister_Uint8(slave, register uint8) (uint8, error)
 
 	// Write
 	WriteRegister_Uint8(slave, register, data uint8) error

@@ -16,6 +16,7 @@ const (
 	ErrUnexpectedValue
 	ErrSampleSkipped
 	ErrTimeout
+	ErrNotImplemented
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -31,6 +32,8 @@ func (e Error) Error() string {
 		return "ErrSampleSkipped"
 	case ErrTimeout:
 		return "ErrTimeout"
+	case ErrNotImplemented:
+		return "ErrNotImplemented"
 	default:
 		return "Undefined error"
 	}

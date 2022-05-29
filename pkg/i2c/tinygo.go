@@ -1,3 +1,5 @@
+//go:build tinygo
+
 package i2c
 
 import (
@@ -12,8 +14,8 @@ import (
 // TYPES
 
 type Config struct {
-	Bus       uint
-	Frequency uint32
+	Bus   uint
+	Speed uint32
 }
 
 type device struct {
@@ -44,7 +46,7 @@ func (cfg Config) New() (*device, error) {
 
 	// Initialise the device
 	if err := this.I2C.Configure(machine.I2CConfig{
-		Frequency: cfg.Frequency,
+		Frequency: cfg.Speed,
 		SDA:       this.sda,
 		SCL:       this.scl,
 	}); err != nil {

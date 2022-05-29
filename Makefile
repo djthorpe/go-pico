@@ -4,17 +4,25 @@ TINYGO := $(shell which tinygo)
 
 # Paths to locations, etc
 BUILD_DIR := "build"
-CMD_DIR := $(filter-out cmd/README.md, $(wildcard cmd/*))
-BUILD_FLAGS := -target pico
+PICO_CMD_DIR := $(filter-out cmd/pico/README.md, $(wildcard cmd/pico/*))
+PICO_BUILD_FLAGS := -target pico
+RPI_CMD_DIR := $(filter-out cmd/rpi/README.md, $(wildcard cmd/rpi/*))
+RPI_BUILD_FLAGS := -tags rpi
 
 # Targets
-all: pico
+all: pico rpi
 
-pico: $(CMD_DIR)
+pico: $(PICO_CMD_DIR)
 
-$(CMD_DIR): dependencies mkdir FORCE
-	@echo Build cmd $(notdir $@)
-	@${TINYGO} build ${BUILD_FLAGS} -o ${BUILD_DIR}/$(notdir $@).uf2 ./$@
+rpi: $(RPI_CMD_DIR)
+
+$(PICO_CMD_DIR): dependencies mkdir FORCE
+	@echo Build pico $(notdir $@)
+	@${TINYGO} build ${PICO_BUILD_FLAGS} -o ${BUILD_DIR}/$(notdir $@).uf2 ./$@
+
+$(RPI_CMD_DIR): dependencies mkdir FORCE
+	@echo Build rpi $(notdir $@)
+	@${GO} build ${RPI_BUILD_FLAGS} -o ${BUILD_DIR}/$(notdir $@).uf2 ./$@
 
 FORCE:
 
