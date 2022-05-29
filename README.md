@@ -16,7 +16,7 @@ environment:
     yet;
   * You'll need to install **golang** on your Rasperry Pi;
   * Use **minicom** on your Raspberry Pi for displaying output from the pico;
-  * Download **picotool** for flashing the code;
+  * Download the Pico SDK and build **picotool** for flashing the code;
   * You'll need GNU Make to compile the example code in `cmd`.
 
 There are probably lots of other dependencies I haven't listed here....
@@ -27,17 +27,18 @@ Assuming a working operating system on your Raspberry Pi, create an `/opt`
 folder for your installation if it's not already created, and install dependencies:
 
 ```bash
+sudo install -o ${USER} -d /opt && cd /opt
 sudo apt -y install \
-  git wget minicom \
+  git wget \
   cmake gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
   build-essential pkg-config libusb-1.0-0-dev
-sudo install -o ${USER} -d /opt && cd /opt
 ```
 
 Proceed to install a recent version of **golang**:
 
 ```bash
 GOBUILD="go1.18.1.linux-armv6l"
+
 cd /opt && wget https://redirector.gvt1.com/edgedl/go/${GOBUILD}.tar.gz  
 install -d "/opt/${GOBUILD}" && tar -C "/opt/${GOBUILD}" -zxvf "${BUILD}.tar.gz" && rm -f "/opt/${GOBUILD}.tar.gz"  
 rm -f /opt/go && cd /opt && ln -s "${GOBUILD}/go" go
@@ -86,7 +87,7 @@ EOF
 
 ## Testing Installation
 
-To test, log out and back in again, and then check for **golang** and **tinygo** versions:
+To test you installation, log out and back in again, and then check for **golang** and **tinygo** versions:
 
 ```bash
 bash% go version
@@ -100,8 +101,168 @@ picotool v1.1.0 (Linux 5.15.32-v7+, GNU-10.2.1, Release
 ## Connecting the Pico
 
 The pinouts for the Pico are listed [here](https://datasheets.raspberrypi.com/pico/Pico-R3-A4-Pinout.pdf). You will
-want to:
+want to connect a reset button to the Pico and connect the default UART to your Raspberry Pi. For the Pico, the pinouts are as follows (when orientating the device face-up so the USB port is at the top):
 
-  1. Connect a reset button to the Pico
-  2. Connect the default UART to your Raspberry Pi
+| Wire     | Pin | Pin | Wire     |
+|----------|-----|-----|----------|
+| UART0 TX |  1  | 40  |          |
+| UART0 RX |  2  | 39  |          |
+| GND      |  3  | 38  |          |
+|          |  4  | 37  |          |
+|          |  5  | 36  |          |
+|          |  6  | 35  |          |
+|          |  7  | 34  |          |
+|          |  8  | 33  |          |
+|          |  9  | 32  |          |
+|          | 10  | 31  |          |
+|          | 11  | 30  | RESET    |
+|          | 12  | 29  |          |
+|          | 13  | 28  | GND      |
+|          | 14  | 27  |          |
+|          | 15  | 26  |          |
+|          | 16  | 25  |          |
+|          | 17  | 24  |          |
+|          | 18  | 23  |          |
+|          | 19  | 22  |          |
+|          | 20  | 21  |          |
 
+Connect Pins 28 and 30 to a push button. For the Raspberry Pi the pinouts are as follows (orientating the device face-up so the power port is at the top left). Connect **TX to RX** and **RX to TX** on the devices.
+
+| Wire     | Pin | Pin | Wire     |
+|----------|-----|-----|----------|
+|          |  1  |  2  |          |
+|          |  3  |  4  |          |
+|          |  5  |  6  |          |
+|          |  7  |  8  | UART  TX |
+|          |  9  | 10  | UART  RX |
+|          | 11  | 12  |          |
+|          | 13  | 14  | GND      |
+|          | 15  | 16  |          |
+|          | 17  | 18  |          |
+|          | 19  | 20  |          |
+|          | 21  | 22  |          |
+|          | 23  | 24  |          |
+|          | 25  | 26  |          |
+|          | 27  | 28  |          |
+|          | 29  | 30  |          |
+|          | 31  | 32  |          |
+|          | 33  | 34  |          |
+|          | 35  | 36  |          |
+|          | 37  | 38  |          |
+|          | 39  | 40  |          |
+
+Set up **minicom** on your Raspberry Pi:
+
+```bash
+sudo usermod -a -G tty ${USER}
+sudo apt -y install minicom
+sudo cat > "/etc/minicom/minirc.dfl" <<EOF
+pu port             /dev/serial0
+pu addlinefeed      Yes
+pu linewrap         Yes
+pu addcarreturn     Yes
+EOF
+```
+
+Use `raspi-config` to enable the serial port **but do not enable login through the serial port**:
+
+  1. Interface Options
+  2. Serial Port
+  3. Would you like a login shell to be accessible over serial? **No**
+  4. Would you like the serial port hardware to be enabled? **Yes**
+
+You may need to reboot your Raspberry Pi.
+
+## Blink
+
+You can then download the code and compile the **blink** application for the Pico using the following commands:
+
+```bash
+install -d ${HOME}/projects && cd ${HOME}/projects
+git clone https://github.com/djthorpe/go-pico.git
+cd go-pico && make cmd/pico/blink
+```
+
+This will place the application `blink.uf2` in the `build` folder. Then use **picotool** to flash your pico. You may need to `sudo` as the permissions:
+
+```bash
+sudo /opt/pico/bin/picotool load -x build/blink.uf2
+```
+
+You'll get an error if the Pico isn't in **BOOLSEL** mode. In order to do
+that, hold the **BOOLSEL** button down on the Pico whilst pressing your **RESET** button. Release the latter button before the former, and try again.
+The `-x` flag forces a device reset, so the application should run
+immediately after load.
+
+You should also try to run **minicom** (perhaps in a separate window) to see
+debugging output of your application:
+
+```bash
+minicom --device /dev/serial0 --baudrate 115200
+```
+
+Try pressing the **RESET** button to see the application restart. Use `CTRL A` plus `X` to exit Minicom.
+
+The **blink** application looks like this:
+
+```go
+package main
+
+import (
+	"os"
+	"time"
+
+	// Modules
+	gpio "github.com/djthorpe/go-pico/pkg/gpio"
+	uart "github.com/djthorpe/go-pico/pkg/uart"
+)
+
+var (
+	UARTConfig = uart.Config{BaudRate: 115200, DataBits: 8, StopBits: 1}
+	LEDPin     = gpio.Pin(25)
+	GPIOConfig = gpio.Config{
+		Out: []gpio.Pin{LEDPin},
+	}
+)
+
+func main() {
+	// Create console
+	stdout, err := UARTConfig.New()
+	if err != nil {
+		panic(err)
+	}
+
+	// Create GPIO
+	gpio, err := GPIOConfig.New()
+	if err != nil {
+		stdout.Println(err)
+		os.Exit(-1)
+	}
+
+	stdout.Println("loaded", gpio)
+
+	// Blink lights
+	for {
+		gpio.High(LEDPin)
+		time.Sleep(time.Millisecond * 800)
+		gpio.Low(LEDPin)
+		time.Sleep(time.Millisecond * 200)
+	}
+}
+```
+
+Two Pico devices are used, the UART and the GPIO. The configuration
+is defined right at the top (note the LED pin is listed as [GP25 here](https://datasheets.raspberrypi.com/pico/Pico-R3-A4-Pinout.pdf). Then, within the `main` function, the devices are setup and an endless loop is entered
+to switch on the LED for 800ms, then off for 200ms.
+
+## Blink on the Raspberry Pi
+
+Very similar code can also be written for the Raspberry Pi. An alternative
+**blink** application can be compiled and run:
+
+```bash
+cd ${HOME}/projects/go-pico && make cmd/rpi/blink
+./build/blink
+```
+
+This code expects an LED on 
