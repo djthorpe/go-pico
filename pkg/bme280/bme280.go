@@ -6,31 +6,26 @@ import (
 	"time"
 
 	// Package imports
-	pico "github.com/djthorpe/go-pico"
+	event "github.com/djthorpe/go-pico/pg/event"
 	multierror "github.com/hashicorp/go-multierror"
 
 	// Namespace imports
+	. "github.com/djthorpe/go-pico"
 	. "github.com/djthorpe/go-pico/pkg/errors"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 // TYPES
 
-type I2CConfig struct {
-	Bus   uint   // I2C Bus (0 or 1)
-	Slave uint8  // BME280 Slave address, uses DEFAULT_I2C_SLAVE if not set
-	Speed uint32 // I2C Communication Speed in Hz, uses DEFAULT_I2C_SPEED if not set
-}
-
-type SPIConfig struct {
-	Bus   uint   // SPI Bus (0, 1 or 2)
-	Slave uint   // SPI Slave (0 or 1) - not used on Pico
-	Speed uint32 // SPI Communication Speed in Hz, uses DEFAULT_SPI_SPEED if not set
+type Config struct {
+	SPI   SPI
+	I2C   I2C
+	Slave uint8 // I2C Slave address, optional
 }
 
 type device struct {
-	i2c                    pico.I2C
-	spi                    pico.SPI
+	i2c                    I2C
+	spi                    SPI
 	slave                  uint8
 	chipid, version        uint8
 	mode                   Mode
@@ -47,9 +42,9 @@ type device struct {
 // CONSTANTS
 
 const (
-	DEFAULT_I2C_SPEED = 100 * 1000 // 100 kHz
+	DEFAULT_SPI_SPEED = 4 * 1e6   // 4Mhz
+	DEFAULT_I2C_SPEED = 100 * 1e3 // 100 kHz
 	DEFAULT_I2C_SLAVE = 0x77
-	DEFAULT_SPI_SPEED = 4 * 1000 * 1000 // 4Mhz
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -65,49 +60,35 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
 
-// Create BME280 device on the I2C bus
-func (cfg I2CConfig) New() (*device, error) {
-	this := new(device)
+// Create new BME280 device
+func (cfg Config) New() (*device, error) {
+	d := new(device)
 
-	// Create I2C device
-	if device, err := NewI2C(cfg); err != nil {
-		return nil, err
-	} else {
-		this.i2c = device
-		this.slave = cfg.Slave | DEFAULT_I2C_SLAVE
+	// Set communciation device
+	switch {
+	case cfg.I2C != nil:
+		d.i2c = cfg.I2C
+		if cfg.Slave == 0 {
+			d.slave = DEFAULT_I2C_SLAVE
+		} else {
+			d.slave = cfg.Slave
+		}
+	case cfg.SPI != nil:
+		d.spi = cfg.SPI
+	default:
+		return nil, ErrBadParameter.With("New")
 	}
 
-	if err := this.sync(); err != nil {
-		return nil, err
-	}
-
-	// Set channel
-	this.ch = make(chan Event)
-
-	// Return success
-	return this, nil
-}
-
-// Create BME280 device on the SPI bus
-func (cfg SPIConfig) New() (*device, error) {
-	this := new(device)
-
-	// Create SPI device
-	if device, err := NewSPI(cfg); err != nil {
-		return nil, err
-	} else {
-		this.spi = device
-	}
-
-	if err := this.sync(); err != nil {
+	// Sync registers
+	if err := d.sync(); err != nil {
 		return nil, err
 	}
 
 	// Set channel
-	this.ch = make(chan Event)
+	d.ch = make(chan Event)
 
 	// Return success
-	return this, nil
+	return d, nil
 }
 
 func (d *device) Close() error {
@@ -183,8 +164,6 @@ func (d *device) C() <-chan Event {
 // humidity and pressure. ErrSampleSkipped is returned if no sample was taken,
 // ErrTimeout if either the device timed out or if the channel was blocked
 func (d *device) Sample() error {
-	var event Event
-
 	// Wait for no measuring or updating
 	if err := d.wait(); err != nil {
 		return err
@@ -208,12 +187,12 @@ func (d *device) Sample() error {
 	}
 
 	// Convert to calibrated values
+	event := event.New(d)
 	tvalue, tfine, err := toTemperature(data, d.coefficients)
 	if errors.Is(err, ErrSampleSkipped) {
 		return ErrSampleSkipped
 	} else {
-		event.Type |= Temperature
-		event.Temperature = tvalue
+		event.SetTemperature(tvalue)
 	}
 	pvalue, err := toPressure(data, tfine, d.coefficients)
 	if err == nil {
@@ -221,23 +200,16 @@ func (d *device) Sample() error {
 		event.Pressure = pvalue
 		avalue, err := toAltitude(tvalue, pvalue, 101325*1000)
 		if err == nil {
-			event.Type |= Altitude
-			event.Altitude = avalue
+			event.SetPressure(avalue)
 		}
 	}
 	hvalue, err := toHumidity(data, tfine, d.coefficients)
 	if err == nil {
-		event.Type |= Humidity
-		event.Humidity = hvalue
+		event.SetHumidity(hvalue)
 	}
 
-	// Emit the event, or return ErrTimeout
-	select {
-	case d.ch <- event:
-		return nil
-	default:
-		return ErrTimeout
-	}
+	// Emit the event, and return any errors
+	return event.SendOn(d.ch)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
