@@ -9,7 +9,7 @@ import (
 
 	// Namespace imports
 	. "github.com/djthorpe/go-pico"
-	//. "github.com/djthorpe/go-pico/pkg/errors"
+	. "github.com/djthorpe/go-pico/pkg/errors"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -187,6 +187,137 @@ func (d *device) sync() error {
 // Return device mode
 func (d *device) Mode() Mode {
 	return d.mode
+}
+
+// Return data mode
+func (d *device) DataMode() DataMode {
+	return d.data_mode
+}
+
+// Return modulation
+func (d *device) Modulation() Modulation {
+	return d.modulation
+}
+
+// Set device mode
+func (d *device) SetMode(v Mode) error {
+	// Unset listen_on if not going to sleep
+	if v != RFM_MODE_SLEEP && d.listen_on {
+		if err := d.setOpMode(v, false, true, d.sequencer_off); err != nil {
+			return err
+		} else {
+			d.listen_on = false
+		}
+	}
+
+	// Unset sequencer if going into standby
+	if v == RFM_MODE_STDBY && d.sequencer_off == false {
+		if err := d.setOpMode(d.mode, d.listen_on, false, true); err != nil {
+			return err
+		} else {
+			d.sequencer_off = true
+		}
+	}
+
+	// Write mode and read back again
+	if err := d.setOpMode(v, false, false, d.sequencer_off); err != nil {
+		return err
+	}
+
+	// Wait for device ready bit
+	if err := wait_for(func() (bool, error) {
+		value, err := d.getIRQ1(RFM_IRQ1_MODEREADY)
+		return to_uint8_bool(uint8(value)), err
+	}); err != nil {
+		return err
+	}
+
+	// Wait for RX or TX Ready
+	if v == RFM_MODE_RX {
+		if err := wait_for(func() (bool, error) {
+			value, err := d.getIRQ1(RFM_IRQ1_RXREADY)
+			return to_uint8_bool(uint8(value)), err
+		}); err != nil {
+			return err
+		}
+	} else if v == RFM_MODE_TX {
+		if err := wait_for(func() (bool, error) {
+			value, err := d.getIRQ1(RFM_IRQ1_TXREADY)
+			return to_uint8_bool(uint8(value)), err
+		}); err != nil {
+			return err
+		}
+	}
+
+	// Read back register
+	if mode, listen_on, sequencer_off, err := d.getOpMode(); err != nil {
+		return err
+	} else if mode != v {
+		return ErrUnexpectedValue.With("SetMode")
+	} else if listen_on != d.listen_on {
+		return ErrUnexpectedValue.With("SetMode")
+	} else {
+		d.mode = mode
+		d.listen_on = listen_on
+		d.sequencer_off = sequencer_off
+	}
+
+	// If RX mode then read AFC value
+	// TODO
+	/*if this.mode == sensors.RFM_MODE_RX {
+		if afc, err := this.getAFC(); err != nil {
+			return err
+		} else {
+			this.afc = afc
+		}
+	}*/
+
+	// Return success
+	return nil
+}
+
+// Set data mode
+func (d *device) SetDataMode(v DataMode) error {
+	// Write
+	if err := d.setDataModul(v, d.modulation); err != nil {
+		return err
+	}
+
+	// Read
+	if data_mode, modulation, err := d.getDataModul(); err != nil {
+		return err
+	} else if data_mode != v {
+		return ErrUnexpectedValue.With("SetDataMode")
+	} else if modulation != d.modulation {
+		return ErrUnexpectedValue.With("SetDataMode")
+	} else {
+		d.data_mode = data_mode
+	}
+
+	// Return success
+	return nil
+}
+
+// Set modulation
+func (d *device) SetModulation(v Modulation) error {
+	// Write
+	if err := d.setDataModul(d.data_mode, v); err != nil {
+		return err
+	}
+
+	// Read
+	if data_mode, modulation, err := d.getDataModul(); err != nil {
+		return err
+	} else if modulation != v {
+		return ErrUnexpectedValue.With("SetModulation")
+	} else if data_mode != d.data_mode {
+		return ErrUnexpectedValue.With("SetModulation")
+	} else {
+		d.modulation = modulation
+	}
+
+	// Return success
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

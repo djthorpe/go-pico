@@ -56,3 +56,10 @@ func (d *device) writereg_uint16(r register, data uint16) error {
 		return nil
 	}
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS - DEBUGGING
+
+func println(v ...interface{}) {
+	fmt.Println(v...)
+}

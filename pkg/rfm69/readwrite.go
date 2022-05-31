@@ -33,3 +33,9 @@ func (d *device) readreg_uint16(r register) (uint16, error) {
 func (d *device) writereg_uint16(r register, data uint16) error {
 	return d.SPI.Transfer([]byte{byte((r & RFM_REG_MAX) | RFM_REG_WRITE), uint8(data >> 8), uint8(data & 0xFF)}, nil)
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS - DEBUGGING
+
+//go:inline
+func println(v ...interface{}) {} // noop in production

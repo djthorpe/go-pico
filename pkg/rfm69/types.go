@@ -1,9 +1,13 @@
 package rfm69
 
+import "strings"
+
 type (
 	Mode       uint8
 	DataMode   uint8
 	Modulation uint8
+	IRQ1       uint8
+	IRQ2       uint8
 )
 
 const (
@@ -31,6 +35,31 @@ const (
 	RFM_MODULATION_OOK_BR     Modulation = 0x09 // 01001 OOK Filtering with f(cutoff) = BR
 	RFM_MODULATION_OOK_2BR    Modulation = 0x0A // 01010 OOK Filtering with f(cutoff) = 2BR
 	RFM_MODULATION_MAX        Modulation = 0x0A
+)
+
+const (
+	RFM_IRQ1_MODEREADY        IRQ1 = 0x80 // Mode has changed
+	RFM_IRQ1_RXREADY          IRQ1 = 0x40
+	RFM_IRQ1_TXREADY          IRQ1 = 0x20
+	RFM_IRQ1_PLLLOCK          IRQ1 = 0x10
+	RFM_IRQ1_RSSI             IRQ1 = 0x08
+	RFM_IRQ1_TIMEOUT          IRQ1 = 0x04
+	RFM_IRQ1_AUTOMODE         IRQ1 = 0x02
+	RFM_IRQ1_SYNCADDRESSMATCH IRQ1 = 0x01
+	RFM_IRQ1_MAX              IRQ1 = 0x80
+	RFM_IRQ1_NONE             IRQ1 = 0x00
+)
+
+const (
+	RFM_IRQ2_CRCOK        IRQ2 = 0x02
+	RFM_IRQ2_PAYLOADREADY IRQ2 = 0x04
+	RFM_IRQ2_PACKETSENT   IRQ2 = 0x08
+	RFM_IRQ2_FIFOOVERRUN  IRQ2 = 0x10
+	RFM_IRQ2_FIFOLEVEL    IRQ2 = 0x20
+	RFM_IRQ2_FIFONOTEMPTY IRQ2 = 0x40
+	RFM_IRQ2_FIFOFULL     IRQ2 = 0x80
+	RFM_IRQ2_MAX          IRQ2 = 0x80
+	RFM_IRQ2_NONE         IRQ2 = 0x00
 )
 
 func (m Mode) String() string {
@@ -79,6 +108,80 @@ func (m Modulation) String() string {
 		return "RFM_MODULATION_OOK_BR"
 	case RFM_MODULATION_OOK_2BR:
 		return "RFM_MODULATION_OOK_2BR"
+	default:
+		return "[??]"
+	}
+}
+
+func (f IRQ1) String() string {
+	if f == RFM_IRQ1_NONE {
+		return f.flagstring()
+	}
+	str := ""
+	for v := IRQ1(1); v <= RFM_IRQ1_MAX; v <<= 1 {
+		if v&f == v {
+			str += "|" + v.flagstring()
+		}
+	}
+	return strings.TrimPrefix(str, "|")
+}
+
+func (v IRQ1) flagstring() string {
+	switch v {
+	case RFM_IRQ1_NONE:
+		return "NONE"
+	case RFM_IRQ1_MODEREADY:
+		return "MODEREADY"
+	case RFM_IRQ1_RXREADY:
+		return "RXREADY"
+	case RFM_IRQ1_TXREADY:
+		return "TXREADY"
+	case RFM_IRQ1_PLLLOCK:
+		return "PLLLOCK"
+	case RFM_IRQ1_RSSI:
+		return "RSSI"
+	case RFM_IRQ1_TIMEOUT:
+		return "TIMEOUT"
+	case RFM_IRQ1_AUTOMODE:
+		return "AUTOMODE"
+	case RFM_IRQ1_SYNCADDRESSMATCH:
+		return "SYNCADDRESSMATCH"
+	default:
+		return "[??]"
+	}
+}
+
+func (f IRQ2) String() string {
+	if f == RFM_IRQ2_NONE {
+		return f.flagstring()
+	}
+	str := ""
+	for v := IRQ2(1); v <= RFM_IRQ2_MAX; v <<= 1 {
+		if v&f == v {
+			str += "|" + v.flagstring()
+		}
+	}
+	return strings.TrimPrefix(str, "|")
+}
+
+func (v IRQ2) flagstring() string {
+	switch v {
+	case RFM_IRQ2_NONE:
+		return "NONE"
+	case RFM_IRQ2_CRCOK:
+		return "CRCOK"
+	case RFM_IRQ2_PAYLOADREADY:
+		return "PAYLOADREADY"
+	case RFM_IRQ2_PACKETSENT:
+		return "PACKETSENT"
+	case RFM_IRQ2_FIFOOVERRUN:
+		return "FIFOOVERRUN"
+	case RFM_IRQ2_FIFOLEVEL:
+		return "FIFOLEVEL"
+	case RFM_IRQ2_FIFONOTEMPTY:
+		return "FIFONOTEMPTY"
+	case RFM_IRQ2_FIFOFULL:
+		return "FIFOFULL"
 	default:
 		return "[??]"
 	}

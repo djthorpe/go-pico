@@ -44,8 +44,8 @@ const (
 	RFM_REG_RSSIVALUE     register = 0x24 // RSSI value in dBm
 	RFM_REG_DIOMAPPING1   register = 0x25 // Mapping of pins DIO0 to DIO3
 	RFM_REG_DIOMAPPING2   register = 0x26 // Mapping of pins DIO4 and DIO5, ClkOut frequency
-	RFM_REG_IRQFLAGS1     register = 0x27 // Status register: PLL Lock state, Timeout, RSSI > Threshold...
-	RFM_REG_IRQFLAGS2     register = 0x28 // Status register: FIFO handling flags...
+	RFM_REG_IRQ1          register = 0x27 // Status register: PLL Lock state, Timeout, RSSI > Threshold...
+	RFM_REG_IRQ2          register = 0x28 // Status register: FIFO handling flags...
 	RFM_REG_RSSITHRESH    register = 0x29 // RSSI Threshold control
 	RFM_REG_RXTIMEOUT1    register = 0x2A // Timeout duration between Rx request and RSSI detection
 	RFM_REG_RXTIMEOUT2    register = 0x2B // Timeout duration between RSSI detection and PayloadReady
@@ -168,10 +168,10 @@ func (r register) String() string {
 		return "DIOMAPPING1"
 	case RFM_REG_DIOMAPPING2:
 		return "DIOMAPPING2"
-	case RFM_REG_IRQFLAGS1:
-		return "IRQFLAGS1"
-	case RFM_REG_IRQFLAGS2:
-		return "IRQFLAGS2"
+	case RFM_REG_IRQ1:
+		return "IRQ1"
+	case RFM_REG_IRQ2:
+		return "IRQ2"
 	case RFM_REG_RSSITHRESH:
 		return "RSSITHRESH"
 	case RFM_REG_RXTIMEOUT1:
@@ -284,10 +284,10 @@ func (d *device) getOpMode() (Mode, bool, bool, error) {
 	if err != nil {
 		return 0, false, false, err
 	}
-
 	mode := Mode(data>>2) & RFM_MODE_MAX
 	listen_on := to_uint8_bool((data >> 6) & 0x01)
 	sequencer_off := to_uint8_bool((data >> 7) & 0x01)
+	println(" get: mode=", mode, " listen_on=", listen_on, " sequencer_off=", sequencer_off)
 	return mode, listen_on, sequencer_off, nil
 }
 
@@ -298,7 +298,12 @@ func (d *device) setOpMode(mode Mode, listen_on bool, listen_abort bool, sequenc
 			to_bool_uint8(listen_on)<<6 |
 			to_bool_uint8(listen_abort)<<5 |
 			to_bool_uint8(sequencer_off)<<7
-	return d.writereg_uint8(RFM_REG_OPMODE, value)
+	if err := d.writereg_uint8(RFM_REG_OPMODE, value); err == nil {
+		println(" set: mode=", mode, " listen_on=", listen_on, " listen_abort=", listen_abort, " sequencer_off=", sequencer_off)
+	} else {
+		return err
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -312,6 +317,7 @@ func (d *device) getDataModul() (DataMode, Modulation, error) {
 	}
 	data_mode := DataMode(data>>5) & RFM_DATAMODE_MAX
 	modulation := Modulation(data) & RFM_MODULATION_MAX
+	println(" get: data_mode=", data_mode, " modulation=", modulation)
 	return data_mode, modulation, nil
 }
 
@@ -320,7 +326,12 @@ func (d *device) setDataModul(data_mode DataMode, modulation Modulation) error {
 	value :=
 		uint8(data_mode&RFM_DATAMODE_MAX)<<5 |
 			uint8(modulation&RFM_MODULATION_MAX)
-	return d.writereg_uint8(RFM_REG_DATAMODUL, value)
+	if err := d.writereg_uint8(RFM_REG_DATAMODUL, value); err == nil {
+		println(" set: data_mode=", data_mode, " modulation=", modulation)
+	} else {
+		return err
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -334,4 +345,24 @@ func (d *device) getBitrate() (uint16, error) {
 // Write bitrate (two bytes)
 func (d *device) setBitrate(bitrate uint16) error {
 	return d.writereg_uint16(RFM_REG_BITRATEMSB, bitrate)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RFM_REG_IRQXFLAGS
+
+func (d *device) getIRQ1(mask IRQ1) (IRQ1, error) {
+	v, err := d.readreg_uint8(RFM_REG_IRQ1)
+	println(" get:", IRQ1(v)&mask)
+	return IRQ1(v) & mask, err
+}
+
+func (d *device) setIRQ2(v IRQ2) error {
+	// Note: set RFM_IRQ2_FIFOOVERRUN to clear the FIFO buffer
+	return d.writereg_uint8(RFM_REG_IRQ2, uint8(v))
+}
+
+func (d *device) getIRQ2(mask IRQ2) (IRQ2, error) {
+	v, err := d.readreg_uint8(RFM_REG_IRQ2)
+	println(" get:", IRQ2(v)&mask)
+	return IRQ2(v) & mask, err
 }

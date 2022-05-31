@@ -28,4 +28,10 @@ func main() {
 
 	// Print device info
 	fmt.Println(radio)
+
+	// Set mode to RX
+	if err := radio.SetMode(rfm69.RFM_MODE_RX); err != nil {
+		fmt.Println(err)
+		os.Exit(-1)
+	}
 }
