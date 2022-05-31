@@ -175,7 +175,17 @@ You may need to reboot your Raspberry Pi.
 
 ## Blink
 
-You can then download the code and compile the **blink** application for the Pico using the following commands:
+The purpose of the "Blink" application is to control the GPIO pins to switch an LED (light emitting diode) on and off.
+You can blink the Pico's in-built LED or wire up a Raspberry Pi with an LED in order to demonstrate this.
+
+What you'll need:
+
+  * A light emitting diode of any colour or variation;
+  * A resistor, probably between 5 and 100 ohms in value.
+
+### Blink for Pico
+
+Download the code and compile the **blink** application for the Pico using the following commands:
 
 ```bash
 install -d ${HOME}/projects && cd ${HOME}/projects
@@ -257,7 +267,7 @@ is defined right at the top (note the LED pin is listed as [GP25 here](https://d
 Then, within the `main` function, the devices are setup and an endless loop is entered
 to switch on the LED for 800ms, then off for 200ms.
 
-## Blink on the Raspberry Pi
+### Blink for the Raspberry Pi
 
 Very similar code can also be written for the Raspberry Pi. An alternative
 **blink** application can be compiled and run:
@@ -340,6 +350,15 @@ func main() {
 }
 ```
 
+## Switch
+
+The purpose of the "Switch" application is to determine if a switch is being clicked or released and perform
+an action based on this event. In addition to the components for "blink" you'll need:
+
+  * A PCB-mountable switch, ideally one which activates when pressed and deactivates when
+    released.
+
+TODO
 
 ## Further Examples
 
