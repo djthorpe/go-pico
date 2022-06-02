@@ -60,10 +60,8 @@ type BME280 interface {
 	Sample() error
 }
 
-type EventSource interface {
-	// Return channel on which events are emitted from source
-	C() <-chan Event
-}
+// Mark an instance as a source of events
+type EventSource interface{}
 
 // Event
 type Event interface {

@@ -6,20 +6,19 @@ import (
 
 	// Modules
 	bme280 "github.com/djthorpe/go-pico/pkg/bme280"
+	"github.com/djthorpe/go-pico/pkg/spi"
 	uart "github.com/djthorpe/go-pico/pkg/uart"
 
 	// Namespace imports
 	. "github.com/djthorpe/go-pico"
 )
 
-// Device configuration
-var (
-	UARTConfig   = uart.Config{BaudRate: 115200, DataBits: 8, StopBits: 1}
-	BME280Config = bme280.SPIConfig{Bus: 0}
-)
-
 // Main
 func main() {
+	stdout = uart.New({BaudRate: 115200, DataBits: 8, StopBits: 1})
+	spi = spi.New({Bus: 0, Slave: 1})
+	bme280 = bme280.New({ SPI: spi})
+
 	// Create console
 	stdout, err := UARTConfig.New()
 	if err != nil {

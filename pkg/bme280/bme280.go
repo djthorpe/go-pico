@@ -6,7 +6,7 @@ import (
 	"time"
 
 	// Package imports
-	event "github.com/djthorpe/go-pico/pg/event"
+	event "github.com/djthorpe/go-pico/pkg/event"
 	multierror "github.com/hashicorp/go-multierror"
 
 	// Namespace imports
@@ -34,7 +34,7 @@ type device struct {
 	filter                 Filter
 	spi3w_en               bool
 	coefficients           cal
-	ch                     chan Event
+	ch                     chan<- Event
 	d16                    [2]byte
 }
 
@@ -60,8 +60,17 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
 
-// Create new BME280 device
-func (cfg Config) New() (*device, error) {
+// Create new BME280 device, with channel. Panics on error
+func New(cfg Config, ch chan<- Event) *device {
+	if d, err := cfg.New(ch); err != nil {
+		panic(err)
+	} else {
+		return d
+	}
+}
+
+// Create new BME280 device, with channel
+func (cfg Config) New(ch chan<- Event) (*device, error) {
 	d := new(device)
 
 	// Set communciation device
@@ -76,7 +85,14 @@ func (cfg Config) New() (*device, error) {
 	case cfg.SPI != nil:
 		d.spi = cfg.SPI
 	default:
-		return nil, ErrBadParameter.With("New")
+		return nil, ErrBadParameter.With("bme280")
+	}
+
+	// Set channel
+	if ch == nil {
+		return nil, ErrBadParameter.With("bme280")
+	} else {
+		d.ch = ch
 	}
 
 	// Sync registers
@@ -84,21 +100,12 @@ func (cfg Config) New() (*device, error) {
 		return nil, err
 	}
 
-	// Set channel
-	d.ch = make(chan Event)
-
 	// Return success
 	return d, nil
 }
 
 func (d *device) Close() error {
 	var result error
-
-	// Close the channel
-	if d.ch != nil {
-		close(d.ch)
-		d.ch = nil
-	}
 
 	// Put device into sleep state
 	if err := d.SetMode(BME280_MODE_SLEEP); err != nil {
@@ -110,14 +117,18 @@ func (d *device) Close() error {
 		if err := d.i2c.Close(); err != nil {
 			result = multierror.Append(result, err)
 		}
-		d.i2c = nil
 	}
 	if d.spi != nil {
 		if err := d.spi.Close(); err != nil {
 			result = multierror.Append(result, err)
 		}
-		d.spi = nil
 	}
+
+	// Release resources
+	d.slave = 0
+	d.ch = nil
+	d.i2c = nil
+	d.spi = nil
 
 	// Return any errors
 	return result
@@ -155,11 +166,6 @@ func (d *device) String() string {
 ////////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS
 
-// Return event channel
-func (d *device) C() <-chan Event {
-	return d.ch
-}
-
 // Sample sensor and emit an event on channel which includes the temperature,
 // humidity and pressure. ErrSampleSkipped is returned if no sample was taken,
 // ErrTimeout if either the device timed out or if the channel was blocked
@@ -196,11 +202,10 @@ func (d *device) Sample() error {
 	}
 	pvalue, err := toPressure(data, tfine, d.coefficients)
 	if err == nil {
-		event.Type |= Pressure
-		event.Pressure = pvalue
+		event.SetPressure(pvalue)
 		avalue, err := toAltitude(tvalue, pvalue, 101325*1000)
 		if err == nil {
-			event.SetPressure(avalue)
+			event.SetAltitude(avalue)
 		}
 	}
 	hvalue, err := toHumidity(data, tfine, d.coefficients)
@@ -209,7 +214,7 @@ func (d *device) Sample() error {
 	}
 
 	// Emit the event, and return any errors
-	return event.SendOn(d.ch)
+	return event.Emit(d.ch)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -24,7 +24,7 @@ type event struct {
 ////////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
 
-func New(source EventSource) Event {
+func New(source EventSource) *event {
 	return &event{EventSource: source}
 }
 
@@ -100,7 +100,7 @@ func (e *event) SetAltitude(v int32) {
 	e.altitudeValue = v
 }
 
-func (e *event) SendOn(C chan<- Event) error {
+func (e *event) Emit(C chan<- Event) error {
 	select {
 	case C <- e:
 		return nil

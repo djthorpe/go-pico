@@ -19,6 +19,15 @@ type device struct {
 	tx, rx machine.Pin
 }
 
+func New(cfg Config) *device {
+	if d, err := cfg.New(); err != nil {
+		panic(err)
+	} else {
+		return d
+	}
+	return nil
+}
+
 func (cfg Config) New() (*device, error) {
 	this := new(device)
 

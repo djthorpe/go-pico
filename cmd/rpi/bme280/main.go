@@ -7,26 +7,20 @@ import (
 
 	// Modules
 	bme280 "github.com/djthorpe/go-pico/pkg/bme280"
+	spi "github.com/djthorpe/go-pico/pkg/spi"
 
 	// Namespace imports
 	. "github.com/djthorpe/go-pico"
 )
 
-// Device configuration
-var (
-	BME280Config = bme280.SPIConfig{Bus: 0}
-)
-
 // Main
 func main() {
-	fmt.Println("=> bme280")
+	ch := make(chan Event)
+	device := bme280.New(bme280.Config{
+		SPI: spi.New(spi.Config{Bus: 0, Slave: 1}),
+	}, ch)
 
-	// Create BME280 device
-	device, err := BME280Config.New()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
-	}
+	fmt.Println("=> bme280")
 
 	// Reset device
 	if err := device.Reset(); err != nil {
@@ -51,8 +45,8 @@ func main() {
 	// Print device info
 	fmt.Println(device)
 
-	// Receive in the background
-	go receive(device.C())
+	// Receive events in the background
+	go receive(ch)
 
 	// Sample in the foreground, once per second
 	sample(device, time.Millisecond*1000)
@@ -69,7 +63,7 @@ func sample(device BME280, frequency time.Duration) {
 	}
 }
 
-func receive(ch <-chan bme280.Event) {
+func receive(ch <-chan Event) {
 	// Output events in the foreground
 	for evt := range ch {
 		fmt.Println(evt)
