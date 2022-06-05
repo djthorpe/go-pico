@@ -82,5 +82,10 @@ func (e *event) String() string {
 }
 
 func (v value) String() string {
-	return fmt.Sprint(v.v, v.u)
+	units := fmt.Sprint(v.u)
+	if units == "" {
+		return fmt.Sprint(v.v)
+	} else {
+		return fmt.Sprint(v.v, " ", units)
+	}
 }

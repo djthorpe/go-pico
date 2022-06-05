@@ -38,9 +38,12 @@ type device struct {
 // CONSTANTS
 
 const (
-	DEFAULT_SAMPLES = 4
+	DEFAULT_SAMPLES = 10
 	PIN_BOOTSEL     = Pin(23)
 	PIN_CHARGING    = Pin(24)
+	BATTERY_FACTOR  = 3 * 3.3 / 65535
+	BATTERY_FULL    = 4.2 //  reference voltages for a full/empty battery, in volts
+	BATTERY_EMPTY   = 2.8 // the values could vary by battery size/manufacturer so you might need to adjust them
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -185,7 +188,6 @@ func (d *device) Charging() bool {
 // PRIVATE METHODS
 
 func (d *device) receive() {
-	fmt.Println("receiving events")
 	for evt := range d.in {
 		switch evt.Source() {
 		case d.temp:
@@ -199,15 +201,33 @@ func (d *device) receive() {
 			}
 		case d.battery:
 			if evt.Is(Sample) {
-				// Emit changed temperature value
-				v, u := evt.Value(Temperature)
-				if v_ := v.(uint32); v_ != d.celcius {
-					d.celcius = v_
-					event.New(d).Set(Temperature, u, v_).Emit(d.out)
+				// Emit changed battery value
+				v, _ := evt.Value(Sample)
+				if v_ := v.(uint16); v_ != d.volts {
+					d.volts = v_
+					vf := float32(v_) * BATTERY_FACTOR
+					vp := uint16(100.0 * ((vf - BATTERY_EMPTY) / (BATTERY_FULL - BATTERY_EMPTY)))
+					if vp > 100 {
+						vp = 100
+					}
+					if d.Charging() {
+						event.New(d).Set(Battery, Volt, vf).Set(Charging, Percent, vp).Emit(d.out)
+					} else {
+						event.New(d).Set(Battery, Volt, vf).Set(Discharging, Percent, vp).Emit(d.out)
+					}
 				}
 			}
 		case PIN_CHARGING:
-			fmt.Println("charging", evt)
+			if evt.Is(Sample) {
+				v, _ := evt.Value(Sample)
+				if v_, ok := v.(bool); ok {
+					if v_ {
+						event.New(d).Set(Charging, UnitNone, v).Emit(d.out)
+					} else {
+						event.New(d).Set(Discharging, UnitNone, v).Emit(d.out)
+					}
+				}
+			}
 		}
 	}
 	fmt.Println("finished receiving events")

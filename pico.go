@@ -93,6 +93,7 @@ const (
 	Altitude
 	Battery
 	Charging
+	Discharging
 	Button
 	Sample
 	FieldMax  EventField = Sample
@@ -134,10 +135,10 @@ func (u EventUnit) String() string {
 	str := ""
 	for v := EventUnit(1); v <= UnitMax; v <<= 1 {
 		if u&v == v {
-			str += " " + v.flag()
+			str += v.flag()
 		}
 	}
-	return strings.TrimSpace(str)
+	return str
 }
 
 func (f EventField) flag() string {
@@ -156,6 +157,8 @@ func (f EventField) flag() string {
 		return "Battery"
 	case Charging:
 		return "Charging"
+	case Discharging:
+		return "Discharging"
 	case Button:
 		return "Button"
 	case Sample:
