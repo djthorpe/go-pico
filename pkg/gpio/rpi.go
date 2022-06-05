@@ -1,4 +1,4 @@
-//go:build linux
+//go:build rpi
 
 package gpio
 
@@ -187,6 +187,10 @@ func (d *device) Low(pins ...Pin) {
 	for _, pin := range pins {
 		d.bcm_pin_write(pin, false)
 	}
+}
+
+func (d *device) Get(Pin) bool {
+	panic("TODO")
 }
 
 ////////////////////////////////////////////////////////////////////////////////

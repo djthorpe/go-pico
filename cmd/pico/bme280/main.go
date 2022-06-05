@@ -6,7 +6,7 @@ import (
 
 	// Modules
 	bme280 "github.com/djthorpe/go-pico/pkg/bme280"
-	"github.com/djthorpe/go-pico/pkg/spi"
+	spi "github.com/djthorpe/go-pico/pkg/spi"
 	uart "github.com/djthorpe/go-pico/pkg/uart"
 
 	// Namespace imports

@@ -2,6 +2,7 @@ package pico
 
 import (
 	"fmt"
+	"time"
 
 	// Namespace imports
 	. "github.com/djthorpe/go-pico"
@@ -13,19 +14,22 @@ import (
 
 type event struct {
 	EventSource
-	flags         EventField
-	boolValue     bool  // Pure boolean value
-	tempValue     int32 // Temperature in milli-degrees Celsius
-	humidityValue int32 // Relative Humidity in centi-percent
-	pressureValue int32 // Pressure in milli-pascals
-	altitudeValue int32 // Altitude in centi-metres
+	v map[EventField]value
+}
+
+type value struct {
+	v interface{}
+	u EventUnit
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
 
 func New(source EventSource) *event {
-	return &event{EventSource: source}
+	return &event{
+		EventSource: source,
+		v:           make(map[EventField]value),
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -36,77 +40,34 @@ func (e *event) Source() EventSource {
 }
 
 func (e *event) Is(f EventField) bool {
-	return e.flags&f == f
+	_, exists := e.v[f]
+	return exists
 }
 
-func (e *event) SetBool(v bool) {
-	e.flags |= Bool
-	e.boolValue = v
+func (e *event) Set(f EventField, u EventUnit, v interface{}) Event {
+	e.v[f] = value{v, u}
+	return e
 }
 
-func (e *event) Bool() bool {
-	return e.boolValue
-}
-
-func (e *event) SetTemperature(v int32) {
-	e.flags |= Temperature
-	e.tempValue = v
-}
-
-func (e *event) Temperature() int32 {
-	if e.Is(Temperature) {
-		return e.tempValue
+func (e *event) Value(f EventField) (interface{}, EventUnit) {
+	if v, exists := e.v[f]; exists {
+		return v.v, v.u
 	} else {
-		return 0
+		return nil, 0
 	}
-}
-
-func (e *event) Pressure() int32 {
-	if e.Is(Pressure) {
-		return e.pressureValue
-	} else {
-		return 0
-	}
-}
-
-func (e *event) SetPressure(v int32) {
-	e.flags |= Pressure
-	e.pressureValue = v
-}
-
-func (e *event) Humidity() int32 {
-	if e.Is(Humidity) {
-		return e.humidityValue
-	} else {
-		return 0
-	}
-}
-
-func (e *event) SetHumidity(v int32) {
-	e.flags |= Humidity
-	e.humidityValue = v
-}
-
-func (e *event) Altitude() int32 {
-	if e.Is(Altitude) {
-		return e.altitudeValue
-	} else {
-		return 0
-	}
-}
-
-func (e *event) SetAltitude(v int32) {
-	e.flags |= Altitude
-	e.altitudeValue = v
 }
 
 func (e *event) Emit(C chan<- Event) error {
-	select {
-	case C <- e:
-		return nil
-	default:
-		return ErrTimeout
+	for i := 0; i < 3; i++ {
+		select {
+		case C <- e:
+			return nil
+		default:
+			// Wait
+			time.Sleep(time.Duration(i) * time.Millisecond)
+		}
 	}
+	return ErrTimeout
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,20 +75,12 @@ func (e *event) Emit(C chan<- Event) error {
 
 func (e *event) String() string {
 	str := "<event"
-	if e.Is(Bool) {
-		str += fmt.Sprintf(" bool=%v", e.Bool())
-	}
-	if e.Is(Temperature) {
-		str += fmt.Sprintf(" temp=%.1fC", float32(e.Temperature())/1000.0)
-	}
-	if e.Is(Pressure) {
-		str += fmt.Sprintf(" pressure=%.1fhPa", float32(e.Pressure())/100.0)
-	}
-	if e.Is(Humidity) {
-		str += fmt.Sprintf(" humidity=%.0f%%", float32(e.Humidity())/100.0)
-	}
-	if e.Is(Altitude) {
-		str += fmt.Sprintf(" altitude=%.1fm", float32(e.Altitude())/100.0)
+	for k, v := range e.v {
+		str += fmt.Sprintf(" %v=%v", k, v)
 	}
 	return str + ">"
+}
+
+func (v value) String() string {
+	return fmt.Sprint(v.v, v.u)
 }

@@ -10,6 +10,7 @@ import (
 
 type Pin uint          // GPIO Logical pin number
 type EventField uint32 // Populated data fields in an event
+type EventUnit uint32  // Populated data fields in an event
 
 ////////////////////////////////////////////////////////////////////////////////
 // INTERFACES
@@ -49,6 +50,16 @@ type GPIO interface {
 
 	High(...Pin)
 	Low(...Pin)
+	Get(Pin) bool
+}
+
+// ADC interface
+type ADC interface {
+	io.Closer
+	EventSource
+
+	// One-shot measurement, emitting an event on successful read
+	Sample() error
 }
 
 // BME280 temperature, pressure and humidity sensor
@@ -65,37 +76,50 @@ type EventSource interface{}
 
 // Event
 type Event interface {
-	Source() EventSource // Emitter of event
-	Is(EventField) bool  // Fields
-	Bool() bool          // Pure boolean number
-	Temperature() int32  // Temperature in milli-Celcius
-	Pressure() int32     // Pressure in milli-Pascals
-	Humidity() int32     // Relative Humidity in centi-Percent
-	Altitude() int32     // Altitude in centi-Mmetres
+	Source() EventSource                          // Emitter of event
+	Is(EventField) bool                           // Field name
+	Set(EventField, EventUnit, interface{}) Event // Set field, unit and value
+	Emit(C chan<- Event) error                    // Emit event
+	Value(EventField) (interface{}, EventUnit)    // Get untyped value or nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
 
 const (
-	Bool EventField = (1 << iota)
-	Temperature
+	Temperature EventField = (1 << iota)
 	Pressure
 	Humidity
 	Altitude
-	Max  EventField = Altitude
-	None EventField = 0
+	Battery
+	Charging
+	Button
+	Sample
+	FieldMax  EventField = Sample
+	FieldNone EventField = 0
+)
+
+const (
+	Centi EventUnit = (1 << iota)
+	Milli
+	Celcius
+	Pascal
+	Percent
+	Metre
+	Volt
+	UnitMax  EventUnit = Volt
+	UnitNone EventUnit = 0
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
 func (f EventField) String() string {
-	if f == None {
+	if f == FieldNone {
 		return f.flag()
 	}
 	str := ""
-	for v := EventField(1); v <= Max; v <<= 1 {
+	for v := EventField(1); v <= FieldMax; v <<= 1 {
 		if f&v == v {
 			str += "|" + v.flag()
 		}
@@ -103,12 +127,23 @@ func (f EventField) String() string {
 	return strings.TrimPrefix(str, "|")
 }
 
+func (u EventUnit) String() string {
+	if u == UnitNone {
+		return u.flag()
+	}
+	str := ""
+	for v := EventUnit(1); v <= UnitMax; v <<= 1 {
+		if u&v == v {
+			str += " " + v.flag()
+		}
+	}
+	return strings.TrimSpace(str)
+}
+
 func (f EventField) flag() string {
 	switch f {
-	case None:
+	case FieldNone:
 		return "None"
-	case Bool:
-		return "Bool"
 	case Temperature:
 		return "Temperature"
 	case Pressure:
@@ -117,7 +152,38 @@ func (f EventField) flag() string {
 		return "Humidity"
 	case Altitude:
 		return "Altitude"
+	case Battery:
+		return "Battery"
+	case Charging:
+		return "Charging"
+	case Button:
+		return "Button"
+	case Sample:
+		return "Sample"
 	default:
-		return "??EventType"
+		return "??EventField"
+	}
+}
+
+func (f EventUnit) flag() string {
+	switch f {
+	case UnitNone:
+		return ""
+	case Centi:
+		return "Centi"
+	case Milli:
+		return "Milli"
+	case Celcius:
+		return "Celcius"
+	case Pascal:
+		return "Pascal"
+	case Percent:
+		return "Percent"
+	case Metre:
+		return "Metre"
+	case Volt:
+		return "Volt"
+	default:
+		return "??EventUnit"
 	}
 }
