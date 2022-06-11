@@ -51,6 +51,7 @@ type GPIO interface {
 	High(...Pin)
 	Low(...Pin)
 	Get(Pin) bool
+	Set(Pin, bool)
 }
 
 // ADC interface
@@ -60,6 +61,18 @@ type ADC interface {
 
 	// One-shot measurement, emitting an event on successful read
 	Sample() error
+}
+
+// Display interface
+type Display interface {
+	io.Closer
+	EventSource
+
+	// Get current backlight state
+	Backlight() bool
+
+	// Switch backlight on or off
+	SetBacklight(bool)
 }
 
 // BME280 temperature, pressure and humidity sensor

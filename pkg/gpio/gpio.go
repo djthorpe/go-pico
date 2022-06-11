@@ -9,10 +9,15 @@ import (
 // TYPES
 
 type Config struct {
-	In    []Pin
-	Out   []Pin
-	Watch []Pin
+	In    []Pin // Pins in input mode
+	Out   []Pin // Pins in output mode
+	PWM   []Pin // Output pins with PWM
+	Watch []Pin // Input pins to watch
 }
+
+const (
+	DEFAULT_PWM = 1000 // Default PWM frequency
+)
 
 ////////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
