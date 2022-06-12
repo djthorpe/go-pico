@@ -1,0 +1,169 @@
+//go:build rp2040
+
+package sdk
+
+import (
+	// Module imports
+	rp "device/rp"
+)
+
+// SDK documentation
+// https://github.com/raspberrypi/pico-sdk/tree/master/src/rp2_common/hardware_uart
+
+//////////////////////////////////////////////////////////////////////////////
+// TYPES
+
+type UART_parity_t uint32
+
+//////////////////////////////////////////////////////////////////////////////
+// CONSTS
+
+const (
+	UART_PARITY_NONE UART_parity_t = iota
+	UART_PARITY_EVEN
+	UART_PARITY_ODD
+)
+
+const (
+	PICO_UART_DEFAULT_CRLF      = false
+	PICO_DEFAULT_UART_BAUD_RATE = 115200
+)
+
+//////////////////////////////////////////////////////////////////////////////
+// PUBLIC METHODS
+
+// Reset UART
+func UART_reset(uart uint32) {
+	assert(uart < NUM_UARTS)
+	switch uart {
+	case 0:
+		reset_block(rp.RESETS_RESET_UART0_Msk)
+	case 1:
+		reset_block(rp.RESETS_RESET_UART1_Msk)
+	}
+
+}
+
+// Unreset UART
+func UART_unreset(uart uint32) {
+	assert(uart < NUM_UARTS)
+	switch uart {
+	case 0:
+		unreset_block_wait(rp.RESETS_RESET_UART0_Msk)
+	case 1:
+		unreset_block_wait(rp.RESETS_RESET_UART1_Msk)
+	}
+}
+
+// Initialise a UART
+//
+func UART_init(uart, baudrate uint32) uint32 {
+	assert(uart < NUM_UARTS)
+
+	if CLOCK_get_hz(CLOCK_PERI) == 0 {
+		return 0
+	}
+
+	// TODO
+	UART_reset(uart)
+	UART_unreset(uart)
+	UART_set_translate_crlf(uart, PICO_UART_DEFAULT_CRLF)
+	baud := UART_set_baudrate(uart, PICO_DEFAULT_UART_BAUD_RATE)
+	UART_set_format(uart, 8, 1, UART_PARITY_NONE)
+
+	// Enable the UART, both TX and RX
+
+	// Return baud rate
+	return baud
+}
+
+// DeInitialise a UART
+//
+func UART_deinit(uart uint32)
+
+/*
+// Set UART baud rate
+//
+func UART_set_baudrate(uart_inst_t *uart, uint32 baudrate)
+
+// Set UART flow control CTS/RTS
+//
+// If cts true enable flow control of TX  by clear-to-send input
+// If rts true enable assertion of request-to-send output by RX flow control
+//
+func UART_set_hw_flow(uart_inst_t *uart, bool cts, bool rts)
+
+// Set UART data format
+//
+func UART_set_format(uart_inst_t *uart, uint data_bits, uint stop_bits, uart_parity_t parity)
+
+// Setup UART interrupts
+//
+func UART_set_irq_enables(uart_inst_t *uart, bool rx_has_data, bool tx_needs_data)
+
+//  Test if specific UART is enabled
+//
+func UART_is_enabled(uart_inst_t *uart) bool
+
+
+// Enable/Disable the FIFOs on specified UART
+//
+func UART_set_fifo_enabled(uart_inst_t *uart, bool enabled)
+
+// Determine if space is available in the TX FIFO
+//
+func UART_is_writable(uart_inst_t *uart)
+
+// Wait for the UART TX fifo to be drained
+//
+func UART_tx_wait_blocking(uart_inst_t *uart)
+
+// Determine whether data is waiting in the RX FIFO
+//
+func UART_is_readable(uart_inst_t *uart)
+
+// Write to the UART for transmission.
+//
+func UART_write_blocking(uart_inst_t *uart, const uint8_t *src, size_t len)
+
+// Read from the UART
+//
+func UART_read_blocking(uart_inst_t *uart, uint8_t *dst, size_t len)
+
+// Write single character to UART for transmission
+//
+func UART_putc_raw(uart_inst_t *uart, char c)
+
+// Write single character to UART for transmission, with optional CR/LF conversions
+//
+//
+func UART_putc(uart_inst_t *uart, char c)
+
+// Write string to UART for transmission, doing any CR/LF conversions
+//
+func UART_puts(uart_inst_t *uart, const char *s)
+
+// Read a single character to UART
+//
+func uart_getc(uart_inst_t *uart)
+
+// Assert a break condition on the UART transmission
+//
+func UART_set_break(uart_inst_t *uart, bool en)
+
+// Set CR/LF conversion on UART
+//
+func UART_set_translate_crlf(uart_inst_t *uart, bool translate);
+
+// Wait for the default UART's TX FIFO to be drained
+//
+func UART_default_tx_wait_blocking(void)
+
+// Wait for up to a certain number of microseconds for the RX FIFO to be non empty
+//
+func UART_is_readable_within_us(uart_inst_t *uart, uint32_t us);
+
+// Return the DREQ to use for pacing transfers to/from a particular UART instance
+//
+func UART_get_dreq(uart_inst_t *uart, bool is_tx)
+*/

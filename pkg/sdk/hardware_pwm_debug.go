@@ -7,6 +7,14 @@ import "fmt"
 //////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
+func (v *PWM_config) String() string {
+	str := "<pwm_config"
+	str += fmt.Sprintf(" csr=0x%08X", v.csr)
+	str += fmt.Sprintf(" div=0x%08X", v.div)
+	str += fmt.Sprintf(" top=0x%04X", v.top)
+	return str + ">"
+}
+
 func (v PWM_clkdiv_mode) String() string {
 	switch v {
 	case PWM_DIV_FREE_RUNNING:

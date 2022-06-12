@@ -15,6 +15,23 @@ type GPIO struct {
 	_pwm [NUM_BANK0_GPIOS]*PWM
 }
 
+type Mode uint
+
+//////////////////////////////////////////////////////////////////////////////
+// CONSTANTS
+
+const (
+	ModeOutput Mode = iota
+	ModeInput
+	ModeInputPulldown
+	ModeInputPullup
+	ModeUART
+	ModePWM
+	ModeI2C
+	ModeSPI
+	ModeOff
+)
+
 //////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
 
@@ -84,6 +101,8 @@ func (g *GPIO) initpin(pin Pin, mode Mode) error {
 		GPIO_set_function(_pin, GPIO_FUNC_SPI)
 	case ModePWM:
 		GPIO_set_function(_pin, GPIO_FUNC_PWM)
+	case ModeUART:
+		GPIO_set_function(_pin, GPIO_FUNC_UART)
 	case ModeOff:
 		GPIO_set_function(_pin, GPIO_FUNC_NULL)
 		GPIO_disable_pulls(_pin)
@@ -116,6 +135,8 @@ func (g *GPIO) mode(pin Pin) (Mode, error) {
 		return ModeI2C, nil
 	case GPIO_FUNC_PWM:
 		return ModePWM, nil
+	case GPIO_FUNC_UART:
+		return ModeUART, nil
 	case GPIO_FUNC_SIO:
 		if GPIO_get_dir(GPIO_pin(pin)) == GPIO_DIR_OUT {
 			return ModeOutput, nil
@@ -172,3 +193,6 @@ func (g *GPIO) pwm(pin Pin) (*PWM, error) {
 	}
 	return g._pwm[pin], nil
 }
+
+// Return UART device on a pin
+//

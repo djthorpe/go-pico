@@ -3,6 +3,7 @@ package main
 import (
 	// Namespace imports
 	"fmt"
+	"time"
 
 	. "github.com/djthorpe/go-pico/pkg/pico"
 )
@@ -24,5 +25,7 @@ func main() {
 
 	for {
 		fmt.Println("PWM=", PIN_LED.PWM().Get())
+		time.Sleep(time.Second)
+		PIN_LED.PWM().Inc()
 	}
 }

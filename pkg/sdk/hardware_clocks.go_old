@@ -1,0 +1,49 @@
+//go:build rp2040
+
+package sdk
+
+// Module imports
+
+// SDK documentation
+// https://github.com/raspberrypi/pico-sdk/tree/master/src/rp2_common/hardware_clocks
+
+//////////////////////////////////////////////////////////////////////////////
+// TYPES
+
+type clock_index_t uint32
+
+//////////////////////////////////////////////////////////////////////////////
+// CONSTANTS
+
+//////////////////////////////////////////////////////////////////////////////
+// PUBLIC_METHODS
+
+/*
+// Initialise the clock hardware
+func CLOCK_init(void);
+
+// Configure the specified clock
+//
+func CLOCK_configure(enum clock_index clk_index, uint32_t src, uint32_t auxsrc, uint32_t src_freq, uint32_t freq) bool {
+	// TODO
+	return false
+}
+
+// Stop the specified clock
+//
+func CLOCK_stop(enum clock_index clk_index)
+
+// Get the current frequency of the specified clock
+//
+func CLOCK_get_hz(enum clock_index clk_index) uint32
+
+// Measure a clocks frequency using the Frequency counter
+
+func CLOCK_frequency_count_khz(uint src)
+
+
+// Set the "current frequency" of the clock as reported by clock_get_hz without actually changing the clock
+//
+func CLOCK_set_reported_hz(enum clock_index clk_index, uint hz);
+
+*/

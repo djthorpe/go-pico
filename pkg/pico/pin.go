@@ -4,22 +4,6 @@ package pico
 // TYPES
 
 type Pin uint
-type Mode uint
-
-//////////////////////////////////////////////////////////////////////////////
-// CONSTANTS
-
-const (
-	ModeOutput Mode = iota
-	ModeInput
-	ModeInputPulldown
-	ModeInputPullup
-	ModeUART
-	ModePWM
-	ModeI2C
-	ModeSPI
-	ModeOff
-)
 
 //////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS
