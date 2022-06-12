@@ -1,6 +1,13 @@
 package pico
 
 import (
+	"fmt"
+
+	// Module imports
+	rp "device/rp"
+	interrupt "runtime/interrupt"
+
+	// Namespace imports
 	. "github.com/djthorpe/go-pico/pkg/errors"
 	. "github.com/djthorpe/go-pico/pkg/sdk"
 )
@@ -11,8 +18,6 @@ import (
 type GPIO struct {
 	// Determine which pins have been initialised
 	init [NUM_BANK0_GPIOS]bool
-	// PWM configuration
-	_pwm [NUM_BANK0_GPIOS]*PWM
 }
 
 type Mode uint
@@ -36,17 +41,23 @@ const (
 // CONSTANTS
 
 var (
-	gpio = NewGPIO()
+	gpio      = NewGPIO()
+	gpio_intr = interrupt.New(rp.IRQ_IO_IRQ_BANK0, gpio_intr_handler)
 )
 
 //////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
 
 func NewGPIO() *GPIO {
+	// Initialise GPIO
 	gpio := new(GPIO)
-	for pin := Pin(0); pin < NUM_BANK0_GPIOS; pin++ {
-		gpio._pwm[pin] = NewPWM(pin)
+
+	// Initialise PWM
+	for slice_num := uint32(0); slice_num < NUM_PWM_SLICES; slice_num++ {
+		NewPWM(slice_num)
 	}
+
+	// Return GPIO
 	return gpio
 }
 
@@ -191,8 +202,21 @@ func (g *GPIO) pwm(pin Pin) (*PWM, error) {
 	if err := assert(GPIO_get_function(GPIO_pin(pin)) == GPIO_FUNC_PWM, ErrUnexpectedValue); err != nil {
 		return nil, err
 	}
-	return g._pwm[pin], nil
+	return pwm[PWM_gpio_to_slice_num(GPIO_pin(pin))], nil
 }
 
 // Return UART device on a pin
 //
+
+// Add pin handler
+func (g *GPIO) SetInterrupt(pin Pin, handler func(pin Pin)) {
+	// Enable interrupt handler
+
+	// Enable ARM interrupt
+	gpio_intr.Enable()
+}
+
+// Handle interrupts
+func gpio_intr_handler(interrupt.Interrupt) {
+	fmt.Println("Got intr")
+}

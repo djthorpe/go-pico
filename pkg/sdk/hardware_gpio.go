@@ -298,7 +298,7 @@ func GPIO_get_drive_strength(pin GPIO_pin) GPIO_drive_strength {
 	return GPIO_drive_strength((gpio_pads_bank0.gpio[pin].Get() & rp.PADS_BANK0_GPIO0_DRIVE_Msk) >> rp.PADS_BANK0_GPIO0_DRIVE_Msk)
 }
 
-func GPIO_set_irq_enabled(pin GPIO_pin, events uint32, enabled bool) {
+func GPIO_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool) {
 	assert(pin < NUM_BANK0_GPIOS)
 	switch get_core_num() {
 	case 0:
@@ -310,7 +310,7 @@ func GPIO_set_irq_enabled(pin GPIO_pin, events uint32, enabled bool) {
 	}
 }
 
-func gpio_set_irq_enabled(pin GPIO_pin, events uint32, enabled bool, base gpio_irqctrl_t) {
+func gpio_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool, base gpio_irqctrl_t) {
 	// Clear stale events which might cause immediate spurious handler entry
 	GPIO_acknowledge_irq(pin, events)
 
@@ -323,8 +323,8 @@ func gpio_set_irq_enabled(pin GPIO_pin, events uint32, enabled bool, base gpio_i
 	}
 }
 
-func GPIO_acknowledge_irq(pin GPIO_pin, events uint32) {
-	gpio_io_bank0.intr[pin>>3].Set(events << 4 * (uint32(pin) % 8))
+func GPIO_acknowledge_irq(pin GPIO_pin, events GPIO_irq_level) {
+	gpio_io_bank0.intr[pin>>3].Set(uint32(events) << 4 * (uint32(pin) % 8))
 }
 
 /*

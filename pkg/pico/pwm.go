@@ -1,7 +1,12 @@
 package pico
 
 import (
-	//	. "github.com/djthorpe/go-pico/pkg/errors"
+
+	// Module imports
+	rp "device/rp"
+	interrupt "runtime/interrupt"
+
+	// Namespace imports
 	. "github.com/djthorpe/go-pico/pkg/sdk"
 )
 
@@ -9,41 +14,81 @@ import (
 // TYPES
 
 type PWM struct {
-	pin       Pin
 	slice_num uint32
-	ch        PWM_chan
 	config    *PWM_config
+	intr      interrupt.Interrupt
 }
+
+type PWM_callback_t func(pwm *PWM)
+
+//////////////////////////////////////////////////////////////////////////////
+// CONSTANTS
+
+const (
+	_PWM_MAX_TOP      = 0xFFFF
+	_PWM_DEFAULT_TOP  = 95 * _PWM_MAX_TOP / 100 // start algorithm at 95% Top. This allows us to undershoot period with prescale.
+	_PWM_MILLISECONDS = 1_000_000_000
+	_PWM_MAX_PERIOD   = 268 * _PWM_MILLISECONDS // Maximum Period is 268369920ns on rp2040, given by (16*255+15)*8*(1+0xffff)*(1+1)/16
+)
+
+var (
+	pwm           = [NUM_PWM_SLICES]*PWM{}
+	pwm_callbacks = [NUM_PWM_SLICES]PWM_callback_t{}
+)
 
 //////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
 
-func NewPWM(pin Pin) *PWM {
-	pwm := new(PWM)
-	pwm.pin = pin
-	pwm.slice_num = PWM_gpio_to_slice_num(GPIO_pin(pin))
-	pwm.ch = PWM_gpio_to_channel(GPIO_pin(pin))
-	pwm.config = PWM_get_default_config()
-	return pwm
+func NewPWM(slice_num uint32) *PWM {
+	if slice_num >= NUM_PWM_SLICES {
+		return nil
+	} else if pwm := pwm[slice_num]; pwm != nil {
+		return pwm
+	}
+
+	// Initialise a new PWM
+	pwm[slice_num] = &PWM{
+		slice_num: slice_num,
+		config:    PWM_get_default_config(),
+		intr:      interrupt.New(rp.IRQ_PWM_IRQ_WRAP, intr_handler),
+	}
+
+	// Return the PWM
+	return pwm[slice_num]
 }
 
 func (p *PWM) SetEnabled(enabled bool) {
 	if enabled {
+		PWM_config_set_clkdiv(p.config, 16)
 		PWM_init(p.slice_num, p.config, true)
 	} else {
 		PWM_set_enabled(p.slice_num, enabled)
 	}
 }
 
+func (p *PWM) Enabled() bool {
+	return PWM_is_enabled(p.slice_num)
+}
+
+// Set level
+func (p *PWM) Set(pin Pin, level uint16) {
+	PWM_set_gpio_level(GPIO_pin(pin), level)
+}
+
+// Get level
+func (p *PWM) Get(pin Pin) uint16 {
+	return PWM_get_gpio_level(GPIO_pin(pin))
+}
+
 // Get counter value
 //
-func (p *PWM) Get() uint16 {
+func (p *PWM) GetCounter() uint16 {
 	return PWM_get_counter(p.slice_num)
 }
 
 // Set counter value
 //
-func (p *PWM) Set(value uint16) {
+func (p *PWM) SetCounter(value uint16) {
 	PWM_set_counter(p.slice_num, value)
 }
 
@@ -58,3 +103,88 @@ func (p *PWM) Inc() {
 func (p *PWM) Dec() {
 	PWM_retard_count(p.slice_num)
 }
+
+// Set wrapping value
+//
+func (p *PWM) SetWrap(wrap uint16) {
+	PWM_set_wrap(p.slice_num, wrap)
+	PWM_config_set_wrap(p.config, wrap)
+}
+
+// Get wrapping value
+//
+func (p *PWM) Wrap() uint16 {
+	return PWM_get_wrap(p.slice_num)
+}
+
+// Set interrupt handler
+//
+func (p *PWM) SetInterrupt(handler func(pwm *PWM)) {
+	// Enable interrupt handler
+	PWM_clear_irq(p.slice_num)
+	PWM_set_irq_enabled(p.slice_num, true)
+
+	// Set callback
+	pwm_callbacks[p.slice_num] = handler
+
+	// Enable ARM interrupt
+	p.intr.Enable()
+}
+
+// Interrupt handler
+//
+func intr_handler(interrupt.Interrupt) {
+	mask := PWM_get_irq_mask()
+	PWM_clear_irq_mask(mask)
+	for slice_num := uint32(0); slice_num < NUM_PWM_SLICES; slice_num++ {
+		if mask&1 != 0 {
+			if fn := pwm_callbacks[slice_num]; fn != nil {
+				fn(pwm[slice_num])
+			}
+		}
+		mask >>= 1
+	}
+}
+
+/*
+// SetPeriod sets the peripheral frequency
+func (p *PWM) SetPeriod(period uint64) error {
+	if err := assert(period >= 8 && period <= _PWM_MAX_PERIOD, ErrBadParameter); err != nil {
+		return err
+	}
+
+	// Must enable Phase correct to reach large periods.
+	if period > (_PWM_MAX_PERIOD >> 1) {
+		PWM_set_phase_correct(p.slice_num, true)
+	}
+
+	// clearing above expression:
+	//  DIV_INT + DIV_FRAC/16 = cycles / ( (TOP+1) * (CSRPHCorrect+1) )  // DIV_FRAC/16 is always 0 in this equation
+	// where cycles must be converted to time:
+	//  target_period = cycles * period_per_cycle ==> cycles = target_period/period_per_cycle
+	periodPerCycle := uint64(cpuPeriod())
+	phc := uint64(PWM_get_phase_correct(p.slice_num))
+	rhs := 16 * period / ((1 + phc) * periodPerCycle * (1 + topStart)) // right-hand-side of equation, scaled so frac is not divided
+	whole := rhs / 16
+	frac := rhs % 16
+	switch {
+	case whole > 0xff:
+		whole = 0xff
+	case whole == 0:
+		// whole calculation underflowed so setting to minimum
+		// permissible value in DIV_INT register.
+		whole = 1
+		frac = 0
+	}
+
+	// Step 2 is acquiring a better top value. Clearing the equation:
+	// TOP =  cycles / ( (DIVINT+DIVFRAC/16) * (CSRPHCorrect+1) ) - 1
+	top := 16*period/((16*whole+frac)*periodPerCycle*(1+phc)) - 1
+	if top > maxTop {
+		top = maxTop
+	}
+	pwm.SetTop(uint32(top))
+	pwm.setClockDiv(uint8(whole), uint8(frac))
+	return nil
+}
+*/

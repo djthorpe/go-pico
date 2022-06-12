@@ -204,6 +204,13 @@ func PWM_set_wrap(slice_num uint32, wrap uint16) {
 	pwm_groups.pwm[slice_num].top.Set(uint32(wrap))
 }
 
+// Get the current PWM counter wrap value
+//
+func PWM_get_wrap(slice_num uint32) uint16 {
+	assert(slice_num < NUM_PWM_SLICES)
+	return uint16(pwm_groups.pwm[slice_num].top.Get())
+}
+
 // Set the current PWM counter compare value for one channel
 //
 func PWM_set_chan_level(slice_num uint32, ch PWM_chan, level uint16) {
@@ -215,6 +222,20 @@ func PWM_set_chan_level(slice_num uint32, ch PWM_chan, level uint16) {
 	case PWM_CHAN_B:
 		pwm_groups.pwm[slice_num].cc.ReplaceBits(uint32(level)<<rp.PWM_CH0_CC_B_Pos, rp.PWM_CH0_CC_B_Msk, 0)
 	}
+}
+
+// Get the current PWM counter compare value for one channel
+//
+func PWM_get_chan_level(slice_num uint32, ch PWM_chan) uint16 {
+	assert(slice_num < NUM_PWM_SLICES)
+	assert(ch == PWM_CHAN_A || ch == PWM_CHAN_B)
+	switch ch {
+	case PWM_CHAN_A:
+		return uint16(pwm_groups.pwm[slice_num].cc.Get() & rp.PWM_CH0_CC_A_Msk >> rp.PWM_CH0_CC_A_Pos)
+	case PWM_CHAN_B:
+		return uint16(pwm_groups.pwm[slice_num].cc.Get() & rp.PWM_CH0_CC_B_Msk >> rp.PWM_CH0_CC_B_Pos)
+	}
+	return 0
 }
 
 // Set PWM counter compare values
@@ -233,6 +254,12 @@ func PWM_set_both_levels(slice_num uint32, levela, levelb uint16) {
 func PWM_set_gpio_level(pin GPIO_pin, level uint16) {
 	assert(pin < NUM_BANK0_GPIOS)
 	PWM_set_chan_level(PWM_gpio_to_slice_num(pin), PWM_gpio_to_channel(pin), level)
+}
+
+// Helper function to get the PWM level for the slice and channel associated with a GPIO
+func PWM_get_gpio_level(pin GPIO_pin) uint16 {
+	assert(pin < NUM_BANK0_GPIOS)
+	return PWM_get_chan_level(PWM_gpio_to_slice_num(pin), PWM_gpio_to_channel(pin))
 }
 
 // Get PWM counter
@@ -341,6 +368,13 @@ func PWM_set_mask_enabled(mask uint32) {
 	pwm_groups.en.Set(mask)
 }
 
+// Determine if PWM is enabled
+//
+func PWM_is_enabled(slice_num uint32) bool {
+	assert(slice_num < NUM_PWM_SLICES)
+	return pwm_groups.pwm[slice_num].csr.HasBits(rp.PWM_CH0_CSR_EN_Msk)
+}
+
 // Enable PWM instance interrupt
 //
 func PWM_set_irq_enabled(slice_num uint32, enabled bool) {
@@ -355,7 +389,7 @@ func PWM_set_irq_enabled(slice_num uint32, enabled bool) {
 // Enable multiple PWM instance interrupts
 //
 func PWM_set_irq_mask_enabled(slice_mask uint32, enabled bool) {
-	assert(slice_mask < 256)
+	assert(slice_mask < (1 << NUM_PWM_SLICES))
 	if enabled {
 		pwm_groups.inte.SetBits(slice_mask)
 	} else {
@@ -368,6 +402,19 @@ func PWM_set_irq_mask_enabled(slice_mask uint32, enabled bool) {
 func PWM_clear_irq(slice_num uint32) {
 	assert(slice_num < NUM_PWM_SLICES)
 	pwm_groups.intr.Set(1 << slice_num)
+}
+
+// Clear multiple PWM interrupts
+//
+func PWM_clear_irq_mask(slice_mask uint32) {
+	assert(slice_mask < (1 << NUM_PWM_SLICES))
+	pwm_groups.intr.Set(slice_mask)
+}
+
+// Get PWM interrupt mask, raw
+//
+func PWM_get_irq_mask() uint32 {
+	return pwm_groups.intr.Get()
 }
 
 // Get PWM interrupt status, raw
