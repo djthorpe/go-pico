@@ -7,10 +7,12 @@ import (
 
 	// Module imports
 	rp "device/rp"
+	interrupt "runtime/interrupt"
 	volatile "runtime/volatile"
 )
 
-// https://github.com/raspberrypi/pico-sdk/blob/master/src/rp2_common/hardware_gpio/include/hardware/gpio.h
+// SDK documentation
+// https://github.com/raspberrypi/pico-sdk/blob/master/src/rp2_common/hardware_gpio
 
 //////////////////////////////////////////////////////////////////////////////
 // TYPES
@@ -33,9 +35,9 @@ type gpio_io_t struct {
 }
 
 type gpio_irqctrl_t struct {
-	intE [4]volatile.Register32
-	intS [4]volatile.Register32
-	intF [4]volatile.Register32
+	inte [4]volatile.Register32
+	ints [4]volatile.Register32
+	intf [4]volatile.Register32
 }
 
 type gpio_bank0_t struct {
@@ -45,6 +47,8 @@ type gpio_bank0_t struct {
 	proc1IRQctrl       gpio_irqctrl_t
 	dormantWakeIRQctrl gpio_irqctrl_t
 }
+
+type gpio_irq_callback_t func(interrupt.Interrupt)
 
 //////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
@@ -83,13 +87,23 @@ const (
 )
 
 const (
+	GPIO_IRQ_LEVEL_NONE GPIO_irq_level = 0
+	GPIO_IRQ_LEVEL_LOW  GPIO_irq_level = 1
+	GPIO_IRQ_LEVEL_HIGH GPIO_irq_level = 2
+	GPIO_IRQ_EDGE_FALL  GPIO_irq_level = 4
+	GPIO_IRQ_EDGE_RISE  GPIO_irq_level = 8
+	GPIO_IRQ_LEVEL_MAX  GPIO_irq_level = GPIO_IRQ_EDGE_RISE
+)
+
+const (
 	GPIO_DIR_IN  = 0
 	GPIO_DIR_OUT = 1
 )
 
 var (
-	gpio_pads_bank0 = (*gpio_pads_bank0_t)(unsafe.Pointer(rp.PADS_BANK0))
-	gpio_io_bank0   = (*gpio_bank0_t)(unsafe.Pointer(rp.IO_BANK0))
+	gpio_pads_bank0   = (*gpio_pads_bank0_t)(unsafe.Pointer(rp.PADS_BANK0))
+	gpio_io_bank0     = (*gpio_bank0_t)(unsafe.Pointer(rp.IO_BANK0))
+	gpio_irq_callback = [NUM_CORES]gpio_irq_callback_t{}
 )
 
 //////////////////////////////////////////////////////////////////////////////
@@ -159,7 +173,7 @@ func GPIO_pull_up(pin GPIO_pin) {
 
 // Set specified GPIO to be pulled down
 //
-func gpio_pull_down(pin GPIO_pin) {
+func GPIO_pull_down(pin GPIO_pin) {
 	GPIO_set_pulls(pin, false, true)
 }
 
@@ -222,6 +236,24 @@ func GPIO_set_input_enabled(pin GPIO_pin, enabled bool) {
 	gpio_pads_bank0.gpio[pin].ReplaceBits(bool_to_bit(enabled)<<rp.PADS_BANK0_GPIO0_IE_Pos, rp.PADS_BANK0_GPIO0_IE_Msk, 0)
 }
 
+// Set or clear GPIO output enabled
+//
+func GPIO_set_output_enabled(pin GPIO_pin, enabled bool) {
+	assert(pin < NUM_BANK0_GPIOS)
+	if enabled {
+		rp.SIO.GPIO_OE_SET.Set(1 << pin)
+	} else {
+		rp.SIO.GPIO_OE_CLR.Set(1 << pin)
+	}
+}
+
+// Get GPIO output enabled state
+//
+func GPIO_get_output_enabled(pin GPIO_pin) bool {
+	assert(pin < NUM_BANK0_GPIOS)
+	return rp.SIO.GPIO_OE.HasBits(1 << pin)
+}
+
 // Enable/disable GPIO input hysteresis (Schmitt trigger)
 //
 func GPIO_set_input_hysteresis_enabled(pin GPIO_pin, enabled bool) {
@@ -238,7 +270,7 @@ func GPIO_is_input_hysteresis_enabled(pin GPIO_pin) bool {
 
 // Set slew rate for a specified GPIO
 //
-func gpio_set_slew_rate(pin GPIO_pin, slew GPIO_slew_rate) {
+func GPIO_set_slew_rate(pin GPIO_pin, slew GPIO_slew_rate) {
 	assert(pin < NUM_BANK0_GPIOS)
 	assert(slew <= GPIO_SLEW_RATE_FAST)
 	gpio_pads_bank0.gpio[pin].ReplaceBits(uint32(slew)<<rp.PADS_BANK0_GPIO0_SLEWFAST_Pos, rp.PADS_BANK0_GPIO0_SLEWFAST_Msk, 0)
@@ -246,7 +278,7 @@ func gpio_set_slew_rate(pin GPIO_pin, slew GPIO_slew_rate) {
 
 // Determine current slew rate for a specified GPIO
 //
-func gpio_get_slew_rate(pin GPIO_pin) GPIO_slew_rate {
+func GPIO_get_slew_rate(pin GPIO_pin) GPIO_slew_rate {
 	assert(pin < NUM_BANK0_GPIOS)
 	return GPIO_slew_rate((gpio_pads_bank0.gpio[pin].Get() & rp.PADS_BANK0_GPIO0_SLEWFAST) >> rp.PADS_BANK0_GPIO0_SLEWFAST_Pos)
 }
@@ -278,9 +310,17 @@ func GPIO_set_irq_enabled(pin GPIO_pin, events uint32, enabled bool) {
 	}
 }
 
-func gpio_set_irq_enabled(pin GPIO_pin, events uint32, enabled bool, base gpio_bank0_t) {
-	gpio_acknowledge_irq(pin, events)
-	// TODO
+func gpio_set_irq_enabled(pin GPIO_pin, events uint32, enabled bool, base gpio_irqctrl_t) {
+	// Clear stale events which might cause immediate spurious handler entry
+	GPIO_acknowledge_irq(pin, events)
+
+	en_reg := base.inte[pin>>3]
+	events <<= 4 * (pin % 8) >> 2
+	if enabled {
+		en_reg.SetBits(events)
+	} else {
+		en_reg.ClearBits(events)
+	}
 }
 
 func GPIO_acknowledge_irq(pin GPIO_pin, events uint32) {
@@ -288,10 +328,109 @@ func GPIO_acknowledge_irq(pin GPIO_pin, events uint32) {
 }
 
 /*
-//go:inline
-func gpio_set_irq_enabled_with_callback(pin GPIO_pin, events uint32, enabled bool, callback gpio_irq_callback_t) {
+
+func GPIO_set_irq_enabled_with_callback(pin GPIO_pin, events uint32, enabled bool, callback gpio_irq_callback_t) {
+	assert(pin < NUM_BANK0_GPIOS)
+
+	core := get_core_num()
+	// TODO: p.setInterrupt(change, false)
+
+	// disable current interrupt
+	gpio_irq_callback[core] = nil
+	if callback == nil {
+		return
+	}
+
+	// enable current interrupt
+	p.setInterrupt(change, true)
+	pinCallbacks[core] = callback
+
+	if setInt[core] {
+		// interrupt has already been set. Exit.
+		println("core set")
+		return nil
+	}
+	interrupt.New(rp.IRQ_IO_IRQ_BANK0, gpioHandleInterrupt).Enable()
+	irqSet(rp.IRQ_IO_IRQ_BANK0, true)
+	return nil
 	// TODO
 }
+
+
+//go:build rp2040
+// +build rp2040
+
+package machine
+
+import (
+	"device/rp"
+)
+
+// machine_rp2040_sync.go contains interrupt and
+// lock primitives similar to those found in Pico SDK's
+// irq.c
+
+const (
+	// Number of spin locks available
+	_NUMSPINLOCKS = 32
+	// Number of interrupt handlers available
+	_NUMIRQ               = 32
+	_PICO_SPINLOCK_ID_IRQ = 9
+	_NUMBANK0_GPIOS       = 30
+)
+
+// Clears interrupt flag on a pin
+func (p Pin) acknowledgeInterrupt(change PinChange) {
+	ioBank0.intR[p>>3].Set(p.ioIntBit(change))
+}
+
+// Basic interrupt setting via ioBANK0 for GPIO interrupts.
+func (p Pin) setInterrupt(change PinChange, enabled bool) {
+	// Separate mask/force/status per-core, so check which core called, and
+	// set the relevant IRQ controls.
+	switch CurrentCore() {
+	case 0:
+		p.ctrlSetInterrupt(change, enabled, &ioBank0.proc0IRQctrl)
+	case 1:
+		p.ctrlSetInterrupt(change, enabled, &ioBank0.proc1IRQctrl)
+	}
+}
+
+// ctrlSetInterrupt acknowledges any pending interrupt and enables or disables
+// the interrupt for a given IRQ control bank (IOBANK, DormantIRQ, QSPI).
+//
+// pico-sdk calls this the _gpio_set_irq_enabled, not to be confused with
+// gpio_set_irq_enabled (no leading underscore).
+func (p Pin) ctrlSetInterrupt(change PinChange, enabled bool, base *irqCtrl) {
+	p.acknowledgeInterrupt(change)
+	enReg := &base.intE[p>>3]
+	if enabled {
+		enReg.SetBits(p.ioIntBit(change))
+	} else {
+		enReg.ClearBits(p.ioIntBit(change))
+	}
+}
+
+// Enable or disable a specific interrupt on the executing core.
+// num is the interrupt number which must be in [0,31].
+func irqSet(num uint32, enabled bool) {
+	if num >= _NUMIRQ {
+		return
+	}
+	irqSetMask(1<<num, enabled)
+}
+
+func irqSetMask(mask uint32, enabled bool) {
+	if enabled {
+		// Clear pending before enable
+		// (if IRQ is actually asserted, it will immediately re-pend)
+		rp.PPB.NVIC_ICPR.Set(mask)
+		rp.PPB.NVIC_ISER.Set(mask)
+	} else {
+		rp.PPB.NVIC_ICER.Set(mask)
+	}
+}
+
 
 //go:inline
 func gpio_set_dormant_irq_enabled(pin GPIO_pin, events uint32, enabled bool) {

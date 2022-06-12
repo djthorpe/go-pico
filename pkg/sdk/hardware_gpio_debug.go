@@ -2,17 +2,10 @@
 
 package sdk
 
-import "fmt"
-
-//////////////////////////////////////////////////////////////////////////////
-// ASSERT
-
-//go:inline
-func assert(cond bool) {
-	if !cond {
-		panic("assertation failed")
-	}
-}
+import (
+	"fmt"
+	"strings"
+)
 
 //////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
@@ -89,4 +82,34 @@ func (v GPIO_drive_strength) String() string {
 	default:
 		return fmt.Sprintf("GPIO_drive_strength(0x%02X)", uint(v))
 	}
+}
+
+func (v GPIO_irq_level) _String() string {
+	switch v {
+	case GPIO_IRQ_LEVEL_NONE:
+		return "GPIO_IRQ_LEVEL_NONE"
+	case GPIO_IRQ_LEVEL_LOW:
+		return "GPIO_IRQ_LEVEL_LOW"
+	case GPIO_IRQ_LEVEL_HIGH:
+		return "GPIO_IRQ_LEVEL_HIGH"
+	case GPIO_IRQ_EDGE_FALL:
+		return "GPIO_IRQ_EDGE_FALL"
+	case GPIO_IRQ_EDGE_RISE:
+		return "GPIO_IRQ_EDGE_RISE"
+	default:
+		return fmt.Sprintf("GPIO_irq_level(0x%02X)", uint(v))
+	}
+}
+
+func (v GPIO_irq_level) String() string {
+	if v == GPIO_IRQ_LEVEL_NONE {
+		return v._String()
+	}
+	str := ""
+	for f := GPIO_irq_level(1); f <= GPIO_IRQ_LEVEL_MAX; f <<= 1 {
+		if v&f != 0 {
+			str += v._String() + "|"
+		}
+	}
+	return strings.Trim(str, "|")
 }
