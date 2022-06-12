@@ -41,7 +41,6 @@ func UART_reset(uart uint32) {
 	case 1:
 		reset_block(rp.RESETS_RESET_UART1_Msk)
 	}
-
 }
 
 // Unreset UART

@@ -5,8 +5,7 @@ import (
 )
 
 var (
-	PIN_LED     = Pin(25)
-	PIN_BOOTSEL = Pin(23)
+	PIN_LED = Pin(25)
 )
 
 var (

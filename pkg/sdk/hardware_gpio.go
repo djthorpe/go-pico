@@ -317,9 +317,9 @@ func gpio_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool, bas
 	en_reg := base.inte[pin>>3]
 	events <<= 4 * (pin % 8) >> 2
 	if enabled {
-		en_reg.SetBits(events)
+		en_reg.SetBits(uint32(events))
 	} else {
-		en_reg.ClearBits(events)
+		en_reg.ClearBits(uint32(events))
 	}
 }
 
