@@ -1,3 +1,5 @@
+//go:build pico
+
 package pico
 
 import (
@@ -39,7 +41,7 @@ var (
 //////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
 
-func NewPWM(slice_num uint32) *PWM {
+func _NewPWM(slice_num uint32) *PWM {
 	if slice_num >= NUM_PWM_SLICES {
 		return nil
 	} else if pwm := pwm[slice_num]; pwm != nil {
@@ -56,6 +58,9 @@ func NewPWM(slice_num uint32) *PWM {
 	// Return the PWM
 	return pwm[slice_num]
 }
+
+//////////////////////////////////////////////////////////////////////////////
+// PUBLIC METHODS
 
 func (p *PWM) SetEnabled(enabled bool) {
 	if enabled {
@@ -82,7 +87,7 @@ func (p *PWM) Get(pin Pin) uint16 {
 
 // Get counter value
 //
-func (p *PWM) GetCounter() uint16 {
+func (p *PWM) Counter() uint16 {
 	return PWM_get_counter(p.slice_num)
 }
 
@@ -117,9 +122,12 @@ func (p *PWM) Wrap() uint16 {
 	return PWM_get_wrap(p.slice_num)
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// PUBLIC METHODS - INTERRUPTS
+
 // Set interrupt handler
 //
-func (p *PWM) SetInterrupt(handler func(pwm *PWM)) {
+func (p *PWM) SetInterrupt(handler PWM_callback_t) {
 	// Enable interrupt handler
 	PWM_clear_irq(p.slice_num)
 	PWM_set_irq_enabled(p.slice_num, true)
@@ -130,6 +138,9 @@ func (p *PWM) SetInterrupt(handler func(pwm *PWM)) {
 	// Enable ARM interrupt
 	p.intr.Enable()
 }
+
+//////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS - INTERRUPTS
 
 // Interrupt handler
 //

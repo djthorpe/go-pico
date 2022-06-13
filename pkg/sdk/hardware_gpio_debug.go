@@ -108,7 +108,7 @@ func (v GPIO_irq_level) String() string {
 	str := ""
 	for f := GPIO_irq_level(1); f <= GPIO_IRQ_LEVEL_MAX; f <<= 1 {
 		if v&f != 0 {
-			str += v._String() + "|"
+			str += f._String() + "|"
 		}
 	}
 	return strings.Trim(str, "|")

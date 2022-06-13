@@ -1,7 +1,7 @@
 package main
 
 import (
-	. "github.com/djthorpe/go-pico/pkg/pico"
+	. "github.com/djthorpe/go-pico"
 )
 
 var (

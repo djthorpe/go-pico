@@ -1,4 +1,4 @@
-//go:build rp2040 && !production
+//go:build !production
 
 package pico
 
@@ -8,10 +8,6 @@ import (
 
 //////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
-
-func (v Pin) String() string {
-	return fmt.Sprint("GP", uint(v))
-}
 
 func (v Mode) String() string {
 	switch v {

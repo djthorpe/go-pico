@@ -35,9 +35,9 @@ type gpio_io_t struct {
 }
 
 type gpio_irqctrl_t struct {
-	inte [4]volatile.Register32
-	ints [4]volatile.Register32
-	intf [4]volatile.Register32
+	inte [4]volatile.Register32 // enable
+	ints [4]volatile.Register32 // force
+	intf [4]volatile.Register32 // status
 }
 
 type gpio_bank0_t struct {
@@ -298,8 +298,12 @@ func GPIO_get_drive_strength(pin GPIO_pin) GPIO_drive_strength {
 	return GPIO_drive_strength((gpio_pads_bank0.gpio[pin].Get() & rp.PADS_BANK0_GPIO0_DRIVE_Msk) >> rp.PADS_BANK0_GPIO0_DRIVE_Msk)
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// PUBLIC METHODS - INTERRUPT
+
 func GPIO_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool) {
 	assert(pin < NUM_BANK0_GPIOS)
+	assert(events <= (GPIO_IRQ_LEVEL_MAX<<1)-1)
 	switch get_core_num() {
 	case 0:
 		gpio_set_irq_enabled(pin, events, enabled, gpio_io_bank0.proc0IRQctrl)
@@ -310,134 +314,12 @@ func GPIO_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool) {
 	}
 }
 
-func gpio_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool, base gpio_irqctrl_t) {
-	// Clear stale events which might cause immediate spurious handler entry
-	GPIO_acknowledge_irq(pin, events)
-
-	en_reg := base.inte[pin>>3]
-	events <<= 4 * (pin % 8) >> 2
-	if enabled {
-		en_reg.SetBits(uint32(events))
-	} else {
-		en_reg.ClearBits(uint32(events))
-	}
-}
-
 func GPIO_acknowledge_irq(pin GPIO_pin, events GPIO_irq_level) {
-	gpio_io_bank0.intr[pin>>3].Set(uint32(events) << 4 * (uint32(pin) % 8))
-}
-
-/*
-
-func GPIO_set_irq_enabled_with_callback(pin GPIO_pin, events uint32, enabled bool, callback gpio_irq_callback_t) {
 	assert(pin < NUM_BANK0_GPIOS)
-
-	core := get_core_num()
-	// TODO: p.setInterrupt(change, false)
-
-	// disable current interrupt
-	gpio_irq_callback[core] = nil
-	if callback == nil {
-		return
-	}
-
-	// enable current interrupt
-	p.setInterrupt(change, true)
-	pinCallbacks[core] = callback
-
-	if setInt[core] {
-		// interrupt has already been set. Exit.
-		println("core set")
-		return nil
-	}
-	interrupt.New(rp.IRQ_IO_IRQ_BANK0, gpioHandleInterrupt).Enable()
-	irqSet(rp.IRQ_IO_IRQ_BANK0, true)
-	return nil
-	// TODO
+	assert(events <= (GPIO_IRQ_LEVEL_MAX<<1)-1)
+	target := (pin % 8) * 4
+	gpio_io_bank0.intr[pin/8].Set(uint32(events) << target)
 }
-
-
-//go:build rp2040
-// +build rp2040
-
-package machine
-
-import (
-	"device/rp"
-)
-
-// machine_rp2040_sync.go contains interrupt and
-// lock primitives similar to those found in Pico SDK's
-// irq.c
-
-const (
-	// Number of spin locks available
-	_NUMSPINLOCKS = 32
-	// Number of interrupt handlers available
-	_NUMIRQ               = 32
-	_PICO_SPINLOCK_ID_IRQ = 9
-	_NUMBANK0_GPIOS       = 30
-)
-
-// Clears interrupt flag on a pin
-func (p Pin) acknowledgeInterrupt(change PinChange) {
-	ioBank0.intR[p>>3].Set(p.ioIntBit(change))
-}
-
-// Basic interrupt setting via ioBANK0 for GPIO interrupts.
-func (p Pin) setInterrupt(change PinChange, enabled bool) {
-	// Separate mask/force/status per-core, so check which core called, and
-	// set the relevant IRQ controls.
-	switch CurrentCore() {
-	case 0:
-		p.ctrlSetInterrupt(change, enabled, &ioBank0.proc0IRQctrl)
-	case 1:
-		p.ctrlSetInterrupt(change, enabled, &ioBank0.proc1IRQctrl)
-	}
-}
-
-// ctrlSetInterrupt acknowledges any pending interrupt and enables or disables
-// the interrupt for a given IRQ control bank (IOBANK, DormantIRQ, QSPI).
-//
-// pico-sdk calls this the _gpio_set_irq_enabled, not to be confused with
-// gpio_set_irq_enabled (no leading underscore).
-func (p Pin) ctrlSetInterrupt(change PinChange, enabled bool, base *irqCtrl) {
-	p.acknowledgeInterrupt(change)
-	enReg := &base.intE[p>>3]
-	if enabled {
-		enReg.SetBits(p.ioIntBit(change))
-	} else {
-		enReg.ClearBits(p.ioIntBit(change))
-	}
-}
-
-// Enable or disable a specific interrupt on the executing core.
-// num is the interrupt number which must be in [0,31].
-func irqSet(num uint32, enabled bool) {
-	if num >= _NUMIRQ {
-		return
-	}
-	irqSetMask(1<<num, enabled)
-}
-
-func irqSetMask(mask uint32, enabled bool) {
-	if enabled {
-		// Clear pending before enable
-		// (if IRQ is actually asserted, it will immediately re-pend)
-		rp.PPB.NVIC_ICPR.Set(mask)
-		rp.PPB.NVIC_ISER.Set(mask)
-	} else {
-		rp.PPB.NVIC_ICER.Set(mask)
-	}
-}
-
-
-//go:inline
-func gpio_set_dormant_irq_enabled(pin GPIO_pin, events uint32, enabled bool) {
-	// TODO
-}
-
-*/
 
 //////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS - INPUT
@@ -559,240 +441,22 @@ func GPIO_get_dir(pin GPIO_pin) uint8 {
 	return GPIO_DIR_IN
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS - INTERRUPTS
+
+func gpio_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool, base gpio_irqctrl_t) {
+	// Clear stale events which might cause immediate spurious handler entry
+	GPIO_acknowledge_irq(pin, events)
+
+	// Enable or disable interrupt
+	target := (pin % 8) * 4
+	base.inte[pin/8].ClearBits(uint32(events) << target)
+	if enabled {
+		base.inte[pin/8].SetBits(uint32(events) << target)
+	}
+}
+
 /*
-
-import (
-	"device/rp"
-	"runtime/interrupt"
-	"runtime/volatile"
-	"unsafe"
-)
-
-type io struct {
-	status volatile.Register32
-	ctrl   volatile.Register32
-}
-
-type irqCtrl struct {
-	intE [4]volatile.Register32
-	intS [4]volatile.Register32
-	intF [4]volatile.Register32
-}
-
-type ioBank0Type struct {
-	io                 [30]io
-	intR               [4]volatile.Register32
-	proc0IRQctrl       irqCtrl
-	proc1IRQctrl       irqCtrl
-	dormantWakeIRQctrl irqCtrl
-}
-
-var ioBank0 = (*ioBank0Type)(unsafe.Pointer(rp.IO_BANK0))
-
-type padsBank0Type struct {
-	voltageSelect volatile.Register32
-	io            [30]volatile.Register32
-}
-
-var padsBank0 = (*padsBank0Type)(unsafe.Pointer(rp.PADS_BANK0))
-
-// pinFunc represents a GPIO function.
-//
-// Each GPIO can have one function selected at a time.
-// Likewise, each peripheral input (e.g. UART0 RX) should only be  selected
-// on one GPIO at a time. If the same peripheral input is connected to multiple GPIOs,
-// the peripheral sees the logical OR of these GPIO inputs.
-type pinFunc uint8
-
-// GPIO function selectors
-const (
-	fnJTAG pinFunc = 0
-	fnSPI  pinFunc = 1 // Connect one of the internal PL022 SPI peripherals to GPIO
-	fnUART pinFunc = 2
-	fnI2C  pinFunc = 3
-	// Connect a PWM slice to GPIO. There are eight PWM slices,
-	// each with two outputchannels (A/B). The B pin can also be used as an input,
-	// for frequency and duty cyclemeasurement
-	fnPWM pinFunc = 4
-	// Software control of GPIO, from the single-cycle IO (SIO) block.
-	// The SIO function (F5)must be selected for the processors to drive a GPIO,
-	// but the input is always connected,so software can check the state of GPIOs at any time.
-	fnSIO pinFunc = 5
-	// Connect one of the programmable IO blocks (PIO) to GPIO. PIO can implement a widevariety of interfaces,
-	// and has its own internal pin mapping hardware, allowing flexibleplacement of digital interfaces on bank 0 GPIOs.
-	// The PIO function (F6, F7) must beselected for PIO to drive a GPIO, but the input is always connected,
-	// so the PIOs canalways see the state of all pins.
-	fnPIO0, fnPIO1 pinFunc = 6, 7
-	// General purpose clock inputs/outputs. Can be routed to a number of internal clock domains onRP2040,
-	// e.g. Input: to provide a 1 Hz clock for the RTC, or can be connected to an internalfrequency counter.
-	// e.g. Output: optional integer divide
-	fnGPCK pinFunc = 8
-	// USB power control signals to/from the internal USB controller
-	fnUSB  pinFunc = 9
-	fnNULL pinFunc = 0x1f
-
-	fnXIP pinFunc = 0
-)
-
-const (
-	PinOutput PinMode = iota
-	PinInput
-	PinInputPulldown
-	PinInputPullup
-	PinAnalog
-	PinUART
-	PinPWM
-	PinI2C
-	PinSPI
-)
-
-func (p Pin) PortMaskSet() (*volatile.Register32, uint32) {
-	return &rp.SIO.GPIO_OUT_SET, 1 << p
-}
-
-// set drives the pin high
-func (p Pin) set() {
-	mask := uint32(1) << p
-	rp.SIO.GPIO_OUT_SET.Set(mask)
-}
-
-func (p Pin) PortMaskClear() (*volatile.Register32, uint32) {
-	return &rp.SIO.GPIO_OUT_CLR, 1 << p
-}
-
-// clr drives the pin low
-func (p Pin) clr() {
-	mask := uint32(1) << p
-	rp.SIO.GPIO_OUT_CLR.Set(mask)
-}
-
-// xor toggles the pin
-func (p Pin) xor() {
-	mask := uint32(1) << p
-	rp.SIO.GPIO_OUT_XOR.Set(mask)
-}
-
-// get returns the pin value
-func (p Pin) get() bool {
-	return rp.SIO.GPIO_IN.HasBits(1 << p)
-}
-
-func (p Pin) ioCtrl() *volatile.Register32 {
-	return &ioBank0.io[p].ctrl
-}
-
-func (p Pin) padCtrl() *volatile.Register32 {
-	return &padsBank0.io[p]
-}
-
-func (p Pin) pullup() {
-	p.padCtrl().SetBits(rp.PADS_BANK0_GPIO0_PUE)
-	p.padCtrl().ClearBits(rp.PADS_BANK0_GPIO0_PDE)
-}
-
-func (p Pin) pulldown() {
-	p.padCtrl().SetBits(rp.PADS_BANK0_GPIO0_PDE)
-	p.padCtrl().ClearBits(rp.PADS_BANK0_GPIO0_PUE)
-}
-
-func (p Pin) pulloff() {
-	p.padCtrl().ClearBits(rp.PADS_BANK0_GPIO0_PDE)
-	p.padCtrl().ClearBits(rp.PADS_BANK0_GPIO0_PUE)
-}
-
-// setSlew sets pad slew rate control.
-// true sets to fast. false sets to slow.
-func (p Pin) setSlew(sr bool) {
-	p.padCtrl().ReplaceBits(boolToBit(sr)<<rp.PADS_BANK0_GPIO0_SLEWFAST_Pos, rp.PADS_BANK0_GPIO0_SLEWFAST_Msk, 0)
-}
-
-// setSchmitt enables or disables Schmitt trigger.
-func (p Pin) setSchmitt(trigger bool) {
-	p.padCtrl().ReplaceBits(boolToBit(trigger)<<rp.PADS_BANK0_GPIO0_SCHMITT_Pos, rp.PADS_BANK0_GPIO0_SCHMITT_Msk, 0)
-}
-
-// setFunc will set pin function to fn.
-func (p Pin) setFunc(fn pinFunc) {
-	// Set input enable, Clear output disable
-	p.padCtrl().ReplaceBits(rp.PADS_BANK0_GPIO0_IE,
-		rp.PADS_BANK0_GPIO0_IE_Msk|rp.PADS_BANK0_GPIO0_OD_Msk, 0)
-
-	// Zero all fields apart from fsel; we want this IO to do what the peripheral tells it.
-	// This doesn't affect e.g. pullup/pulldown, as these are in pad controls.
-	p.ioCtrl().Set(uint32(fn) << rp.IO_BANK0_GPIO0_CTRL_FUNCSEL_Pos)
-}
-
-// init initializes the gpio pin
-func (p Pin) init() {
-	mask := uint32(1) << p
-	rp.SIO.GPIO_OE_CLR.Set(mask)
-	p.clr()
-}
-
-// Configure configures the gpio pin as per mode.
-func (p Pin) Configure(config PinConfig) {
-	p.init()
-	mask := uint32(1) << p
-	switch config.Mode {
-	case PinOutput:
-		p.setFunc(fnSIO)
-		rp.SIO.GPIO_OE_SET.Set(mask)
-	case PinInput:
-		p.setFunc(fnSIO)
-	case PinInputPulldown:
-		p.setFunc(fnSIO)
-		p.pulldown()
-	case PinInputPullup:
-		p.setFunc(fnSIO)
-		p.pullup()
-	case PinAnalog:
-		p.setFunc(fnNULL)
-		p.pulloff()
-	case PinUART:
-		p.setFunc(fnUART)
-	case PinPWM:
-		p.setFunc(fnPWM)
-	case PinI2C:
-		// IO config according to 4.3.1.3 of rp2040 datasheet.
-		p.setFunc(fnI2C)
-		p.pullup()
-		p.setSchmitt(true)
-		p.setSlew(false)
-	case PinSPI:
-		p.setFunc(fnSPI)
-	}
-}
-
-// Set drives the pin high if value is true else drives it low.
-func (p Pin) Set(value bool) {
-	if value {
-		p.set()
-	} else {
-		p.clr()
-	}
-}
-
-// Get reads the pin value.
-func (p Pin) Get() bool {
-	return p.get()
-}
-
-// PinChange represents one or more trigger events that can happen on a given GPIO pin
-// on the RP2040. ORed PinChanges are valid input to most IRQ functions.
-type PinChange uint8
-
-// Pin change interrupt constants for SetInterrupt.
-const (
-	// PinLevelLow triggers whenever pin is at a low (around 0V) logic level.
-	PinLevelLow PinChange = 1 << iota
-	// PinLevelLow triggers whenever pin is at a high (around 3V) logic level.
-	PinLevelHigh
-	// Edge falling
-	PinFalling
-	// Edge rising
-	PinRising
-)
-
 // Callbacks to be called for pins configured with SetInterrupt.
 var (
 	pinCallbacks [2]func(Pin)
@@ -871,14 +535,88 @@ func (change PinChange) events() uint32 {
 	return uint32(change)
 }
 
-// intBit is the bit storage form of a PinChange for a given Pin
-// in the IO_BANK0 interrupt registers (page 269 RP2040 Datasheet).
-func (p Pin) ioIntBit(change PinChange) uint32 {
-	return change.events() << (4 * (p % 8))
-}
-
 // Acquire interrupt data from a INT status register.
 func getIntChange(p Pin, status uint32) PinChange {
 	return PinChange(status>>(4*(p%8))) & 0xf
 }
+
+func GPIO_set_irq_enabled_with_callback(pin GPIO_pin, events uint32, enabled bool, callback gpio_irq_callback_t) {
+	assert(pin < NUM_BANK0_GPIOS)
+
+	core := get_core_num()
+	// TODO: p.setInterrupt(change, false)
+
+	// disable current interrupt
+	gpio_irq_callback[core] = nil
+	if callback == nil {
+		return
+	}
+
+	// enable current interrupt
+	p.setInterrupt(change, true)
+	pinCallbacks[core] = callback
+
+	if setInt[core] {
+		// interrupt has already been set. Exit.
+		println("core set")
+		return nil
+	}
+	interrupt.New(rp.IRQ_IO_IRQ_BANK0, gpioHandleInterrupt).Enable()
+	irqSet(rp.IRQ_IO_IRQ_BANK0, true)
+	return nil
+	// TODO
+}
+
+// Clears interrupt flag on a pin
+func (p Pin) acknowledgeInterrupt(change PinChange) {
+	ioBank0.intR[p>>3].Set(p.ioIntBit(change))
+}
+
+// Basic interrupt setting via ioBANK0 for GPIO interrupts.
+func (p Pin) setInterrupt(change PinChange, enabled bool) {
+	// Separate mask/force/status per-core, so check which core called, and
+	// set the relevant IRQ controls.
+	switch CurrentCore() {
+	case 0:
+		p.ctrlSetInterrupt(change, enabled, &ioBank0.proc0IRQctrl)
+	case 1:
+		p.ctrlSetInterrupt(change, enabled, &ioBank0.proc1IRQctrl)
+	}
+}
+
+// ctrlSetInterrupt acknowledges any pending interrupt and enables or disables
+// the interrupt for a given IRQ control bank (IOBANK, DormantIRQ, QSPI).
+//
+// pico-sdk calls this the _gpio_set_irq_enabled, not to be confused with
+// gpio_set_irq_enabled (no leading underscore).
+func (p Pin) ctrlSetInterrupt(change PinChange, enabled bool, base *irqCtrl) {
+	p.acknowledgeInterrupt(change)
+	enReg := &base.intE[p>>3]
+	if enabled {
+		enReg.SetBits(p.ioIntBit(change))
+	} else {
+		enReg.ClearBits(p.ioIntBit(change))
+	}
+}
+
+// Enable or disable a specific interrupt on the executing core.
+// num is the interrupt number which must be in [0,31].
+func irqSet(num uint32, enabled bool) {
+	if num >= _NUMIRQ {
+		return
+	}
+	irqSetMask(1<<num, enabled)
+}
+
+func irqSetMask(mask uint32, enabled bool) {
+	if enabled {
+		// Clear pending before enable
+		// (if IRQ is actually asserted, it will immediately re-pend)
+		rp.PPB.NVIC_ICPR.Set(mask)
+		rp.PPB.NVIC_ISER.Set(mask)
+	} else {
+		rp.PPB.NVIC_ICER.Set(mask)
+	}
+}
+
 */

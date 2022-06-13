@@ -1,4 +1,4 @@
-//go:build rp2040 && !production
+//go:build !production
 
 package pico
 
