@@ -3,6 +3,7 @@
 package sdk
 
 import (
+	"fmt"
 	"unsafe"
 
 	// Module imports
@@ -36,8 +37,8 @@ type gpio_io_t struct {
 
 type gpio_irqctrl_t struct {
 	inte [4]volatile.Register32 // enable
-	ints [4]volatile.Register32 // force
-	intf [4]volatile.Register32 // status
+	intf [4]volatile.Register32 // force
+	ints [4]volatile.Register32 // status
 }
 
 type gpio_bank0_t struct {
@@ -317,8 +318,7 @@ func GPIO_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool) {
 func GPIO_acknowledge_irq(pin GPIO_pin, events GPIO_irq_level) {
 	assert(pin < NUM_BANK0_GPIOS)
 	assert(events <= (GPIO_IRQ_LEVEL_MAX<<1)-1)
-	target := (pin % 8) * 4
-	gpio_io_bank0.intr[pin/8].Set(uint32(events) << target)
+	gpio_acknowledge_irq(pin, events)
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -446,14 +446,27 @@ func GPIO_get_dir(pin GPIO_pin) uint8 {
 
 func gpio_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool, base gpio_irqctrl_t) {
 	// Clear stale events which might cause immediate spurious handler entry
-	GPIO_acknowledge_irq(pin, events)
+	gpio_acknowledge_irq(pin, events)
 
-	// Enable or disable interrupt
-	target := (pin % 8) * 4
-	base.inte[pin/8].ClearBits(uint32(events) << target)
+	target := (uint32(pin) % 8) << 2
+	offset := uint32(pin) >> 3
+	mask := uint32((GPIO_IRQ_LEVEL_MAX)<<1 - 1)
+
+	// Disable interrupt
+	base.inte[offset].ClearBits(mask << target)
+
+	// Enable interrupt
 	if enabled {
-		base.inte[pin/8].SetBits(uint32(events) << target)
+		fmt.Println("gpio_set_irq_enabled", pin, events, enabled, target, offset, mask)
+		base.inte[offset].SetBits(uint32(events) << target)
 	}
+}
+
+//go:inline
+func gpio_acknowledge_irq(pin GPIO_pin, events GPIO_irq_level) {
+	target := (uint32(pin) % 8) << 2
+	offset := uint32(pin) >> 3
+	gpio_io_bank0.intr[offset].Set(uint32(events) << target)
 }
 
 /*

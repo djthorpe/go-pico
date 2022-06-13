@@ -15,6 +15,7 @@ var (
 func main() {
 	fmt.Println("=>gpio")
 	BOOTSEL.SetMode(ModeInputPulldown)
+	BOOTSEL.SetInterrupt(nil)
 	BOOTSEL.SetInterrupt(on_gpio_change)
 
 	for {

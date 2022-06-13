@@ -221,6 +221,7 @@ func (g *gpio) pwm(pin Pin) (*PWM, error) {
 // TODO
 
 // Add pin handler
+//
 func (g *gpio) setInterrupt(pin Pin, handler func(pin Pin)) {
 	// TODO
 	if handler != nil {
