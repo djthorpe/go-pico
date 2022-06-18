@@ -189,8 +189,10 @@ func (g *gpio) get(pin Pin) (bool, error) {
 	if err := assert(pin < NUM_BANK0_GPIOS, ErrBadParameter); err != nil {
 		return false, err
 	}
-	if err := assert(g.init[pin], ErrNotInitialised); err != nil {
-		return false, err
+	if !g.init[pin] {
+		if err := g.setmode(pin, ModeInput); err != nil {
+			return false, err
+		}
 	}
 	return GPIO_get(GPIO_pin(pin)), nil
 }
@@ -201,8 +203,10 @@ func (g *gpio) set(pin Pin, value bool) error {
 	if err := assert(pin < NUM_BANK0_GPIOS, ErrBadParameter); err != nil {
 		return err
 	}
-	if err := assert(g.init[pin], ErrNotInitialised); err != nil {
-		return err
+	if !g.init[pin] {
+		if err := g.setmode(pin, ModeOutput); err != nil {
+			return err
+		}
 	}
 	GPIO_put(GPIO_pin(pin), value)
 	return nil
@@ -244,7 +248,7 @@ func (g *gpio) adc(pin Pin) (*ADC, error) {
 	// Check channel, channels are 0..4 - there is also a temperature
 	// ADC sensor on channel 5 but not associated with a pin
 	ch := uint32(pin) - ADC_BANK0_GPIOS_MIN
-	if err := assert(ch < ADC_NUM_CHANNELS, ErrBadParameter.With(pin)); err != nil {
+	if err := assert(ch < NUM_ADC_CHANNELS, ErrBadParameter.With(pin)); err != nil {
 		return nil, err
 	}
 

@@ -3,10 +3,11 @@
 package sdk
 
 import (
+	"unsafe"
+
 	// Module imports
 	rp "device/rp"
 	volatile "runtime/volatile"
-	"unsafe"
 )
 
 // SDK documentation
@@ -33,7 +34,6 @@ type adc_t struct {
 const (
 	ADC_BANK0_GPIOS_MIN = 26
 	ADC_BANK0_GPIOS_MAX = 29
-	ADC_NUM_CHANNELS    = 4
 )
 
 var (
@@ -87,7 +87,7 @@ func ADC_gpio_init(pin GPIO_pin) {
 //
 //go:inline
 func ADC_select_input(input uint32) {
-	assert(input <= ADC_NUM_CHANNELS)
+	assert(input < NUM_ADC_CHANNELS)
 	v := input << rp.ADC_CS_AINSEL_Pos
 	m := uint32(rp.ADC_CS_AINSEL_Msk)
 	adc.cs.ReplaceBits(v, m, 0)
