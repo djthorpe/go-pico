@@ -7,8 +7,8 @@ import "fmt"
 //////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
-func (v *PWM) String() string {
-	str := "<pwm"
-	str += fmt.Sprint(" slice_num=", v.slice_num)
+func (v *ADC) String() string {
+	str := "<adc"
+	str += fmt.Sprint(" ch=", v.ch)
 	return str + ">"
 }

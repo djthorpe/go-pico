@@ -3,7 +3,6 @@
 package sdk
 
 import (
-	"fmt"
 	"unsafe"
 
 	// Module imports
@@ -305,11 +304,12 @@ func GPIO_get_drive_strength(pin GPIO_pin) GPIO_drive_strength {
 func GPIO_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool) {
 	assert(pin < NUM_BANK0_GPIOS)
 	assert(events <= (GPIO_IRQ_LEVEL_MAX<<1)-1)
+
 	switch get_core_num() {
 	case 0:
-		gpio_set_irq_enabled(pin, events, enabled, gpio_io_bank0.proc0IRQctrl)
+		gpio_set_irq_enabled(pin, events, enabled, &gpio_io_bank0.proc0IRQctrl)
 	case 1:
-		gpio_set_irq_enabled(pin, events, enabled, gpio_io_bank0.proc1IRQctrl)
+		gpio_set_irq_enabled(pin, events, enabled, &gpio_io_bank0.proc1IRQctrl)
 	default:
 		assert(false)
 	}
@@ -320,6 +320,14 @@ func GPIO_acknowledge_irq(pin GPIO_pin, events GPIO_irq_level) {
 	assert(events <= (GPIO_IRQ_LEVEL_MAX<<1)-1)
 	gpio_acknowledge_irq(pin, events)
 }
+
+/*
+// TODO
+func GPIO_irq_status(pin GPIO_pin) GPIO_irq_level {
+	assert(pin < NUM_BANK0_GPIOS)
+	return gpio_irq_status(pin)
+}
+*/
 
 //////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS - INPUT
@@ -444,7 +452,7 @@ func GPIO_get_dir(pin GPIO_pin) uint8 {
 //////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS - INTERRUPTS
 
-func gpio_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool, base gpio_irqctrl_t) {
+func gpio_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool, base *gpio_irqctrl_t) {
 	// Clear stale events which might cause immediate spurious handler entry
 	gpio_acknowledge_irq(pin, events)
 
@@ -457,7 +465,6 @@ func gpio_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool, bas
 
 	// Enable interrupt
 	if enabled {
-		fmt.Println("gpio_set_irq_enabled", pin, events, enabled, target, offset, mask)
 		base.inte[offset].SetBits(uint32(events) << target)
 	}
 }

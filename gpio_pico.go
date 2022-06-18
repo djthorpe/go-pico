@@ -18,8 +18,9 @@ import (
 // TYPES
 
 type gpio struct {
-	init []bool
-	intr interrupt.Interrupt
+	init    []bool
+	adcinit bool
+	intr    interrupt.Interrupt
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -53,6 +54,11 @@ func (g *gpio) Close() error {
 // Handle interrupts
 func gpio_intr_handler(interrupt.Interrupt) {
 	fmt.Println("Got intr")
+	for pin := GPIO_pin(0); pin < NUM_BANK0_GPIOS; pin++ {
+		// Get the change for this pin
+
+		GPIO_acknowledge_irq(pin, 0xF)
+	}
 	// TODO
 	/*
 			io_irq_ctrl_hw_t *irq_ctrl_base = get_core_num() ?
@@ -138,6 +144,7 @@ func (g *gpio) setmode(pin Pin, mode Mode) error {
 //
 func (g *gpio) deinit(pin Pin) {
 	if g.init[pin] {
+		g.setInterrupt(pin, nil)
 		GPIO_deinit(GPIO_pin(pin))
 		g.init[pin] = false
 	}
@@ -204,16 +211,57 @@ func (g *gpio) set(pin Pin, value bool) error {
 // Return PWM device on a pin
 //
 func (g *gpio) pwm(pin Pin) (*PWM, error) {
+	// Check parameters
 	if err := assert(pin < NUM_BANK0_GPIOS, ErrBadParameter); err != nil {
 		return nil, err
 	}
-	if err := assert(g.init[pin], ErrNotInitialised); err != nil {
+	// Set mode
+	if mode, err := g.mode(pin); err != nil {
 		return nil, err
+	} else if mode != ModePWM {
+		if err := g.setmode(pin, ModePWM); err != nil {
+			return nil, err
+		}
 	}
-	if err := assert(GPIO_get_function(GPIO_pin(pin)) == GPIO_FUNC_PWM, ErrUnexpectedValue); err != nil {
-		return nil, err
-	}
+	// Return PWM
 	return pwm[PWM_gpio_to_slice_num(GPIO_pin(pin))], nil
+}
+
+// Return ADC device on a pin
+//
+func (g *gpio) adc(pin Pin) (*ADC, error) {
+	// Check parameters
+	if err := assert(pin < NUM_BANK0_GPIOS, ErrBadParameter.With(pin)); err != nil {
+		return nil, err
+	}
+
+	// Initialise ADC device
+	if !g.adcinit {
+		ADC_init()
+		g.adcinit = true
+	}
+
+	// Check channel, channels are 0..4 - there is also a temperature
+	// ADC sensor on channel 5 but not associated with a pin
+	ch := uint32(pin) - ADC_BANK0_GPIOS_MIN
+	if err := assert(ch < ADC_NUM_CHANNELS, ErrBadParameter.With(pin)); err != nil {
+		return nil, err
+	}
+
+	// Set mode
+	if mode, err := g.mode(pin); err != nil {
+		return nil, err
+	} else if mode != ModeOff {
+		if err := g.setmode(pin, ModeOff); err != nil {
+			return nil, err
+		}
+	}
+
+	// Initialise pin
+	ADC_gpio_init(GPIO_pin(pin))
+
+	// Return channel
+	return adc[ch], nil
 }
 
 // Return UART device on a pin

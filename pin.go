@@ -46,6 +46,15 @@ func (p Pin) PWM() *PWM {
 	}
 }
 
+// Get ADC for pin
+func (p Pin) ADC() *ADC {
+	if adc, err := _GPIO.adc(p); err != nil {
+		return nil
+	} else {
+		return adc
+	}
+}
+
 // Set pin interrupt
 //
 func (p Pin) SetInterrupt(callback Pin_callback_t) {
