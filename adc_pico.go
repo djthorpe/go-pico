@@ -18,11 +18,6 @@ type ADC struct {
 //////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
 
-const (
-	// Temperature channel is the last one
-	ADC_TEMP_SENSOR = NUM_ADC_CHANNELS - 1
-)
-
 var (
 	adc = [NUM_ADC_CHANNELS]*ADC{}
 )
@@ -31,7 +26,7 @@ var (
 // LIFECYCLE
 
 func _NewADC(ch uint32) *ADC {
-	if ch > ADC_TEMP_SENSOR {
+	if ch > ADC_temperature_input() {
 		return nil
 	} else if adc := adc[ch]; adc != nil {
 		return adc
@@ -47,7 +42,7 @@ func _NewADC(ch uint32) *ADC {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-// METHODS
+// PUBLIC METHODS
 
 // Get returns the raw ADC value, which is the first 12 bits
 //
@@ -66,10 +61,13 @@ func (a *ADC) GetVoltage(vref float32) float32 {
 	return float32(a.Get()) * vref / float32(1<<12)
 }
 
-// Return temperature ReadTemperature does a one-shot sample of the internal temperature sensor and returns a milli-celsius reading.
-// Only works on the  channel. aka AINSEL=4. Other channels will return 0
+// Return temperature ReadTemperature does a one-shot sample of the internal
+// temperature sensor and returns a celsius reading.
+//
+// Only works on the  channel. Other channels will return 0
+//
 func (a *ADC) GetTemperature() float32 {
-	if a.ch != ADC_TEMP_SENSOR {
+	if a.ch != ADC_temperature_input() {
 		return 0
 	}
 	if a.temp == false {

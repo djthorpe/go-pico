@@ -43,7 +43,7 @@ var (
 //////////////////////////////////////////////////////////////////////////////
 // METHODS
 
-//  Initialise the ADC
+// Initialise the ADC
 //
 func ADC_init() {
 	// ADC is in an unknown state. We should start by resetting it
@@ -80,15 +80,33 @@ func ADC_gpio_init(pin GPIO_pin) {
 	GPIO_set_input_enabled(pin, false)
 }
 
+// Determine the ADC input that is attached to the specified GPIO
+//
+//go:inline
+func ADC_gpio_to_input(pin GPIO_pin) (uint32, bool) {
+	if pin >= ADC_BANK0_GPIOS_MIN && pin <= ADC_BANK0_GPIOS_MAX {
+		return uint32(pin) - ADC_BANK0_GPIOS_MIN, true
+	} else {
+		return 0, false
+	}
+}
+
+// Return temperature input
+//
+//go:inline
+func ADC_temperature_input() uint32 {
+	return NUM_ADC_CHANNELS - 1
+}
+
 // ADC input select
 //
 // Select an ADC input. 0...3 are GPIOs 26...29 respectively.
 // Input 4 is the onboard temperature sensor.
 //
 //go:inline
-func ADC_select_input(input uint32) {
-	assert(input < NUM_ADC_CHANNELS)
-	v := input << rp.ADC_CS_AINSEL_Pos
+func ADC_select_input(ch uint32) {
+	assert(ch < NUM_ADC_CHANNELS)
+	v := ch << rp.ADC_CS_AINSEL_Pos
 	m := uint32(rp.ADC_CS_AINSEL_Msk)
 	adc.cs.ReplaceBits(v, m, 0)
 }
@@ -135,7 +153,7 @@ func ADC_read() uint16 {
 			break
 		}
 	}
-	return uint16(adc.result.Get()) // & rp.ADC_RESULT_RESULT_Msk)
+	return uint16(adc.result.Get() & rp.ADC_RESULT_RESULT_Msk)
 }
 
 // Enable or disable free-running sampling mode

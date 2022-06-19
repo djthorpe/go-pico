@@ -245,9 +245,11 @@ func (g *gpio) adc(pin Pin) (*ADC, error) {
 		g.adcinit = true
 	}
 
-	// Check channel, channels are 0..4
-	ch := uint32(pin) - ADC_BANK0_GPIOS_MIN
-	if err := assert(ch < NUM_ADC_CHANNELS, ErrBadParameter.With(pin)); err != nil {
+	// Get input channel, returns
+	ch, exists := ADC_gpio_to_input(GPIO_pin(pin))
+	if !exists {
+		return nil, ErrBadParameter.With(pin)
+	} else if err := assert(ch < NUM_ADC_CHANNELS, ErrBadParameter.With(pin)); err != nil {
 		return nil, err
 	}
 

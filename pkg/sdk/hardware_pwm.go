@@ -3,7 +3,6 @@
 package sdk
 
 import (
-	"fmt"
 	"unsafe"
 
 	// Module imports
@@ -182,7 +181,6 @@ func PWM_init(slice_num uint32, c *PWM_config, start bool) {
 	pwm_groups.pwm[slice_num].top.Set(c.top)
 	pwm_groups.pwm[slice_num].div.Set(c.div)
 	pwm_groups.pwm[slice_num].csr.SetBits(bool_to_bit(start) << rp.PWM_CH0_CSR_EN_Pos)
-	fmt.Println(c)
 }
 
 // Get a set of default values for PWM configuration
