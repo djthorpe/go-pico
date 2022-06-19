@@ -135,7 +135,7 @@ func ADC_read() uint16 {
 			break
 		}
 	}
-	return uint16(adc.result.Get() & rp.ADC_RESULT_RESULT_Msk)
+	return uint16(adc.result.Get()) // & rp.ADC_RESULT_RESULT_Msk)
 }
 
 // Enable or disable free-running sampling mode

@@ -245,8 +245,7 @@ func (g *gpio) adc(pin Pin) (*ADC, error) {
 		g.adcinit = true
 	}
 
-	// Check channel, channels are 0..4 - there is also a temperature
-	// ADC sensor on channel 5 but not associated with a pin
+	// Check channel, channels are 0..4
 	ch := uint32(pin) - ADC_BANK0_GPIOS_MIN
 	if err := assert(ch < NUM_ADC_CHANNELS, ErrBadParameter.With(pin)); err != nil {
 		return nil, err

@@ -3,7 +3,6 @@
 package pico
 
 import (
-
 	// Module imports
 	rp "device/rp"
 	interrupt "runtime/interrupt"
