@@ -1,9 +1,14 @@
 #!/bin/zsh
 
 # You will want to install libusb
+#
+# mac: 
+#  brew install cmake libusb
+#  brew tap ArmMbed/homebrew-formulae
+#  brew install arm-none-eabi-gcc
 
 # Things you may want to change
-PREFIX="/opt"
+PREFIX="${HOME}/opt"
 TINYGOBUILD="0.23.0"
 PICOSDK="1.3.1"
 PICOTOOL="1.1.0"
@@ -20,6 +25,11 @@ elif [ "${ARCH}" = "aarch64" ]; then
   ARCH="arm64"
 elif [ "${ARCH}" = "armv7l" ]; then
   ARCH="arm"
+fi
+
+# Fudge for Mac M1/M2
+if [ "${ARCH}" = "arm64" ] && [ "${OS:l}" = "darwin" ]; then
+  ARCH="amd64"
 fi
 
 # Check for curl and git
@@ -54,24 +64,24 @@ echo "arch: ${ARCH}"
 echo
 
 # Check for root
-if [ "$(id -u)" != "0" ]; then
-  echo "This script must be run as root"
-  exit 1
-fi
+#if [ "$(id -u)" != "0" ]; then
+#  echo "This script must be run as root"
+#  exit 1
+#fi
 
-# Install the prefix
-install -d -m 0755 "${PREFIX}" || exit -1
+# Install the prefix and bin folders
+install -d -m 0755 "${PREFIX}/bin" || exit -1
 
 # Download tinygo, install
 TINYGODEST="tinygo-${TINYGOBUILD}"
 TINYGOSRC="${TINYGODEST}.${OS:l}-${ARCH:l}.tar.gz"
-if [ -d "/opt/tinygo-${TINYGOBUILD}" ] ; then
+if [ -d "${PREFIX}/tinygo-${TINYGOBUILD}" ] ; then
   echo "${TINYGODEST} installed"
 else
     echo "Downloading ${TINYGOSRC}"
     curl --silent --location --output "${TINYGOSRC}" --output-dir "${TEMP}" "https://github.com/tinygo-org/tinygo/releases/download/v${TINYGOBUILD}/${TINYGOSRC}" || exit -1
-    install -d "/opt/${TINYGODEST}" || exit -1
-    tar -C "/opt/${TINYGODEST}" -zxf "${TEMP}/${TINYGOSRC}" || exit -1
+    install -d "${PREFIX}/${TINYGODEST}" || exit -1
+    tar -C "${PREFIX}/${TINYGODEST}" -zxf "${TEMP}/${TINYGOSRC}" || exit -1
 fi
 if [ -d "${PREFIX}/${TINYGODEST}/tinygo" ]; then
   rm -f "${PREFIX}/tinygo" || exit -1
@@ -79,40 +89,61 @@ if [ -d "${PREFIX}/${TINYGODEST}/tinygo" ]; then
 fi
 
 # Download pico-sdk
-PICOSDKDEST="pico-sdk-${PICOSDK}"
-if [ -d "/opt/${PICOSDKDEST}" ] ; then
-  echo "${PICOSDKDEST} installed"
+PICOSDK_SRC="https://github.com/raspberrypi/pico-sdk.git"
+PICOSDK_DEST="pico-sdk-${PICOSDK}"
+if [ -d "${PREFIX}/${PICOSDK_DEST}" ] ; then
+  echo "${PICOSDK_DEST} installed"
 else
-  pushd && cd "${PREFIX}" && git clone -q -c advice.detachedHead=false --branch "${PICOSDK}" --single-branch https://github.com/raspberrypi/pico-sdk.git "${PICOSDKDEST}" && popd || exit -1
+  pushd && cd "${PREFIX}" && git clone -q -c advice.detachedHead=false --branch "${PICOSDK}" --single-branch "${PICOSDK_SRC}"  "${PICOSDK_DEST}" && popd || exit -1
 fi
-if [ -d "${PREFIX}/${PICOSDKDEST}" ]; then
+if [ -d "${PREFIX}/${PICOSDK_DEST}" ]; then
   rm -f "${PREFIX}/pico-sdk" || exit -1
-  pushd && cd "${PREFIX}" && ln -s "${PREFIX}/${PICOSDKDEST}" pico-sdk && popd || exit -1
+  pushd && cd "${PREFIX}" && ln -s "${PREFIX}/${PICOSDK_DEST}" pico-sdk && popd || exit -1
 fi
 
 # Download picotool
-PICOTOOLDEST="picotool-${PICOTOOL}"
-if [ -d "/opt/${PICOTOOLDEST}" ] ; then
-  echo "${PICOTOOLDEST} installed"
+PICOTOOL_SRC="https://github.com/raspberrypi/picotool.git"
+PICOTOOL_DEST="picotool-${PICOTOOL}"
+if [ -d "${PREFIX}/${PICOTOOL_DEST}" ] ; then
+  echo "${PICOTOOL_DEST} installed"
 else
-  pushd && cd "${PREFIX}" && git clone -q -c advice.detachedHead=false --branch "${PICOTOOL}" --single-branch https://github.com/raspberrypi/picotool.git "${PICOTOOLDEST}" && popd || exit -1
+  pushd && cd "${PREFIX}" && git clone -q -c advice.detachedHead=false --branch "${PICOTOOL}" --single-branch "${PICOTOOL_SRC}" "${PICOTOOL_DEST}" && popd || exit -1
 fi
-if [ -d "${PREFIX}/${PICOTOOLDEST}" ]; then
+if [ -d "${PREFIX}/${PICOTOOL_DEST}" ]; then
   rm -f "${PREFIX}/picotool" || exit -1
-  pushd && cd "${PREFIX}" && ln -s "${PREFIX}/${PICOTOOLDEST}" picotool && popd || exit -1
+  pushd && cd "${PREFIX}" && ln -s "${PREFIX}/${PICOTOOL_DEST}" picotool && popd || exit -1
 fi
 
-# Compile picotool
-if [ -d "${PREFIX}/${PICOTOOLDEST}" ]; then
+
+# Compile pico-sdk
+if [ -d "${PREFIX}/${PICOSDK_DEST}" ]; then
   pushd
-  cd "${PREFIX}/${PICOTOOLDEST}"
+  cd "${PREFIX}/${PICOSDK_DEST}"
+  git submodule update --init || exit -1
   install -d build && cd build || exit -1
-  PICO_SDK_PATH=/opt/pico-sdk cmake .. || exit -1
+  PICO_SDK_PATH="${PREFIX}/pico-sdk" cmake .. || exit -1
+  make || exit -1
+  popd
+fi
+
+
+# Compile picotool
+if [ -d "${PREFIX}/${PICOTOOL_DEST}" ]; then
+  pushd
+  cd "${PREFIX}/${PICOTOOL_DEST}"
+  git submodule update --init || exit -1
+  install -d build && cd build || exit -1
+  PICO_SDK_PATH="${PREFIX}/pico-sdk" cmake .. || exit -1
   make || exit -1
   popd
 fi
 
 # Install binaries
-#/opt/picotool/build/picotool
-#cd /opt/pico/picotool && install -d build && cd build &&  && make && install picotool /opt/pico/bin/picotool 
+if [ -d "${PREFIX}/bin" ]; then
+  pushd
+  cd "${PREFIX}/bin"
+  install "${PREFIX}/${PICOSDK_DEST}/build/elf2uf2/elf2uf2" elf2uf2 || exit -1
+  install "${PREFIX}/${PICOTOOL_DEST}/build/picotool" picotool || exit -1
+  popd
+fi
 
