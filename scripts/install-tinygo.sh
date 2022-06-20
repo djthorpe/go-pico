@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-# You will want to install libusb
+# You will want to install dependencies:
 #
 # mac: 
 #  brew install cmake libusb
@@ -8,7 +8,7 @@
 #  brew install arm-none-eabi-gcc
 
 # Things you may want to change
-PREFIX="${HOME}/opt"
+PREFIX="/opt"
 TINYGOBUILD="0.23.0"
 PICOSDK="1.3.1"
 PICOTOOL="1.1.0"
@@ -59,33 +59,29 @@ cleanup() {
 # Print out the variables
 echo "prefix: ${PREFIX}"
 echo "tinygo: ${TINYGOBUILD}"
+echo "pico-sdk: ${PICOSDK}"
+echo "picotool: ${PICOTOOL}"
 echo "os: ${OS:l}"
 echo "arch: ${ARCH}"
 echo
-
-# Check for root
-#if [ "$(id -u)" != "0" ]; then
-#  echo "This script must be run as root"
-#  exit 1
-#fi
 
 # Install the prefix and bin folders
 install -d -m 0755 "${PREFIX}/bin" || exit -1
 
 # Download tinygo, install
-TINYGODEST="tinygo-${TINYGOBUILD}"
-TINYGOSRC="${TINYGODEST}.${OS:l}-${ARCH:l}.tar.gz"
-if [ -d "${PREFIX}/tinygo-${TINYGOBUILD}" ] ; then
-  echo "${TINYGODEST} installed"
+TINYGO_DEST="tinygo-${TINYGOBUILD}"
+TINYGO_SRC="tinygo${TINYGOBUILD}.${OS:l}-${ARCH:l}.tar.gz"
+if [ -d "${PREFIX}/${TINYGO_DEST}" ] ; then
+  echo "${TINYGO_DEST} installed"
 else
-    echo "Downloading ${TINYGOSRC}"
-    curl --silent --location --output "${TINYGOSRC}" --output-dir "${TEMP}" "https://github.com/tinygo-org/tinygo/releases/download/v${TINYGOBUILD}/${TINYGOSRC}" || exit -1
-    install -d "${PREFIX}/${TINYGODEST}" || exit -1
-    tar -C "${PREFIX}/${TINYGODEST}" -zxf "${TEMP}/${TINYGOSRC}" || exit -1
+    echo "Downloading ${TINYGO_SRC}"
+    curl --silent --location --output "${TINYGO_SRC}" --output-dir "${TEMP}" "https://github.com/tinygo-org/tinygo/releases/download/v${TINYGOBUILD}/${TINYGO_SRC}" || exit -1
+    install -d "${PREFIX}/${TINYGO_DEST}" || exit -1
+    tar -C "${PREFIX}/${TINYGO_DEST}" -zxf "${TEMP}/${TINYGO_SRC}" || exit -1
 fi
-if [ -d "${PREFIX}/${TINYGODEST}/tinygo" ]; then
+if [ -d "${PREFIX}/${TINYGO_DEST}/tinygo" ]; then
   rm -f "${PREFIX}/tinygo" || exit -1
-  pushd && cd "${PREFIX}" && ln -s "${PREFIX}/${TINYGODEST}/tinygo" && popd || exit -1
+  pushd && cd "${PREFIX}" && ln -s "${PREFIX}/${TINYGO_DEST}/tinygo" && popd || exit -1
 fi
 
 # Download pico-sdk
@@ -146,4 +142,19 @@ if [ -d "${PREFIX}/bin" ]; then
   install "${PREFIX}/${PICOTOOL_DEST}/build/picotool" picotool || exit -1
   popd
 fi
+
+# Set .profile
+# if [ -x "${HOME}/.zshrc" ] ; then
+#   cat >>"${HOME}/.zshrc" <<EOF
+# if [ -d "${PREFIX}/tinygo" ] ; then
+#     export PATH="\${PATH}:${PREFIX}/tinygo/bin"
+# fi
+# if [ -d "${PREFIX}/bin" ] ; then
+#     export PATH="\${PATH}:/${PREFIX}/bin"
+# fi
+# if [ -d "${PREFIX}/pico-sdk" ] ; then
+#     export PICO_SDK_PATH="${PREFIX}/pico-sdk"
+# fi
+# EOF
+# fi
 
