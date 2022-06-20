@@ -8,7 +8,6 @@ import (
 	interrupt "runtime/interrupt"
 
 	// Namespace imports
-	. "github.com/djthorpe/go-pico/pkg/errors"
 	. "github.com/djthorpe/go-pico/pkg/sdk"
 )
 
@@ -125,6 +124,7 @@ func (p *PWM) Wrap() uint16 {
 
 // Set period of square wave in nanoseconds
 //
+/*
 func (p *PWM) SetPeriod(period uint64) error {
 	if err := assert(period >= _PWM_MIN_PERIOD && period <= _PWM_MAX_PERIOD, ErrBadParameter.With("SetPeriod:", period)); err != nil {
 		return err
@@ -163,6 +163,7 @@ func (p *PWM) SetPeriod(period uint64) error {
 	pwm.setClockDiv(uint8(whole), uint8(frac))
 	return nil
 }
+*/
 
 //////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS - INTERRUPTS
