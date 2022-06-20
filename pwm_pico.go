@@ -8,6 +8,7 @@ import (
 	interrupt "runtime/interrupt"
 
 	// Namespace imports
+	. "github.com/djthorpe/go-pico/pkg/errors"
 	. "github.com/djthorpe/go-pico/pkg/sdk"
 )
 
@@ -29,6 +30,7 @@ const (
 	_PWM_MAX_TOP      = 0xFFFF
 	_PWM_DEFAULT_TOP  = 95 * _PWM_MAX_TOP / 100 // start algorithm at 95% Top. This allows us to undershoot period with prescale.
 	_PWM_MILLISECONDS = 1_000_000_000
+	_PWM_MIN_PERIOD   = 8                       // Minimum period is 8ns
 	_PWM_MAX_PERIOD   = 268 * _PWM_MILLISECONDS // Maximum Period is 268369920ns on rp2040, given by (16*255+15)*8*(1+0xffff)*(1+1)/16
 )
 
@@ -121,6 +123,47 @@ func (p *PWM) Wrap() uint16 {
 	return PWM_get_wrap(p.slice_num)
 }
 
+// Set period in nanoseconds
+//
+func (p *PWM) SetPeriod(period uint64) error {
+	if err := assert(period >= _PWM_MIN_PERIOD && period <= _PWM_MAX_PERIOD, ErrBadParameter.With("SetPeriod:", period)); err != nil {
+		return err
+	}
+
+	// Must enable Phase correct to reach large periods.
+	if period > (_PWM_MAX_PERIOD >> 1) {
+		PWM_set_phase_correct(p.slice_num, true)
+	}
+
+	// clearing above expression:
+	//  DIV_INT + DIV_FRAC/16 = cycles / ( (TOP+1) * (CSRPHCorrect+1) )  // DIV_FRAC/16 is always 0 in this equation
+	// where cycles must be converted to time:
+	//  target_period = cycles * period_per_cycle ==> cycles = target_period/period_per_cycle
+	period_per_cycle := uint64(cpu_period())
+	phc := uint64(PWM_get_phase_correct(p.slice_num))
+	wrap := PWM_get_wrap(p.slice_num)
+	rhs := 16 * period / ((1 + phc) * period_per_cycle * (1 + wrap)) // right-hand-side of equation, scaled so frac is not divided
+	whole := rhs >> 4
+	frac := rhs & 0x0F
+	switch {
+	case whole > 0xFF:
+		whole = 0xFF
+	case whole == 0:
+		whole = 1
+		frac = 0
+	}
+
+	// Step 2 is acquiring a better top value. Clearing the equation:
+	// TOP =  cycles / ( (DIVINT+DIVFRAC/16) * (CSRPHCorrect+1) ) - 1
+	top := 16*period/((16*whole+frac)*periodPerCycle*(1+phc)) - 1
+	if top > maxTop {
+		top = maxTop
+	}
+	pwm.SetTop(uint32(top))
+	pwm.setClockDiv(uint8(whole), uint8(frac))
+	return nil
+}
+
 //////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS - INTERRUPTS
 
@@ -165,46 +208,3 @@ func intr_handler(interrupt.Interrupt) {
 		mask >>= 1
 	}
 }
-
-/*
-// SetPeriod sets the peripheral frequency
-func (p *PWM) SetPeriod(period uint64) error {
-	if err := assert(period >= 8 && period <= _PWM_MAX_PERIOD, ErrBadParameter); err != nil {
-		return err
-	}
-
-	// Must enable Phase correct to reach large periods.
-	if period > (_PWM_MAX_PERIOD >> 1) {
-		PWM_set_phase_correct(p.slice_num, true)
-	}
-
-	// clearing above expression:
-	//  DIV_INT + DIV_FRAC/16 = cycles / ( (TOP+1) * (CSRPHCorrect+1) )  // DIV_FRAC/16 is always 0 in this equation
-	// where cycles must be converted to time:
-	//  target_period = cycles * period_per_cycle ==> cycles = target_period/period_per_cycle
-	periodPerCycle := uint64(cpuPeriod())
-	phc := uint64(PWM_get_phase_correct(p.slice_num))
-	rhs := 16 * period / ((1 + phc) * periodPerCycle * (1 + topStart)) // right-hand-side of equation, scaled so frac is not divided
-	whole := rhs / 16
-	frac := rhs % 16
-	switch {
-	case whole > 0xff:
-		whole = 0xff
-	case whole == 0:
-		// whole calculation underflowed so setting to minimum
-		// permissible value in DIV_INT register.
-		whole = 1
-		frac = 0
-	}
-
-	// Step 2 is acquiring a better top value. Clearing the equation:
-	// TOP =  cycles / ( (DIVINT+DIVFRAC/16) * (CSRPHCorrect+1) ) - 1
-	top := 16*period/((16*whole+frac)*periodPerCycle*(1+phc)) - 1
-	if top > maxTop {
-		top = maxTop
-	}
-	pwm.SetTop(uint32(top))
-	pwm.setClockDiv(uint8(whole), uint8(frac))
-	return nil
-}
-*/
