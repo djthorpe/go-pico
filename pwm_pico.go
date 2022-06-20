@@ -123,14 +123,14 @@ func (p *PWM) Wrap() uint16 {
 	return PWM_get_wrap(p.slice_num)
 }
 
-// Set period in nanoseconds
+// Set period of square wave in nanoseconds
 //
 func (p *PWM) SetPeriod(period uint64) error {
 	if err := assert(period >= _PWM_MIN_PERIOD && period <= _PWM_MAX_PERIOD, ErrBadParameter.With("SetPeriod:", period)); err != nil {
 		return err
 	}
 
-	// Must enable Phase correct to reach large periods.
+	// Must enable phase correct to reach large periods.
 	if period > (_PWM_MAX_PERIOD >> 1) {
 		PWM_set_phase_correct(p.slice_num, true)
 	}

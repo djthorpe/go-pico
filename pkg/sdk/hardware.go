@@ -30,3 +30,10 @@ const (
 func get_core_num() uint32 {
 	return rp.SIO.CPUID.Get()
 }
+
+// Return the cpu period in nanoseconds
+//
+//go:inline
+func get_cpu_frequency() uint64 {
+	return 125_000_000
+}
