@@ -126,16 +126,26 @@ func (p *PWM) Wrap() uint16 {
 
 // Set interrupt handler
 //
+// If called with nil then handler is disabled
+//
 func (p *PWM) SetInterrupt(handler PWM_callback_t) {
 	// Enable interrupt handler
 	PWM_clear_irq(p.slice_num)
-	PWM_set_irq_enabled(p.slice_num, true)
+	if handler == nil {
+		PWM_set_irq_enabled(p.slice_num, false)
+	} else {
+		PWM_set_irq_enabled(p.slice_num, true)
+	}
 
 	// Set callback
 	pwm_callbacks[p.slice_num] = handler
 
 	// Enable ARM interrupt
-	p.intr.Enable()
+	if handler == nil {
+		p.intr.Disable()
+	} else {
+		p.intr.Enable()
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////

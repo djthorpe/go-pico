@@ -2,7 +2,7 @@
 
 package pico
 
-import ( // Module imports
+import (
 	// Namespace imports
 	. "github.com/djthorpe/go-pico/pkg/sdk"
 )
