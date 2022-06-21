@@ -7,6 +7,14 @@
 #  brew tap ArmMbed/homebrew-formulae
 #  brew install arm-none-eabi-gcc
 
+#
+# fedora:
+#   sudo dnf install gcc-arm-linux-gnu \
+#     arm-none-eabi-gcc-cs-c++ \
+#     arm-none-eabi-gcc-cs \
+#     arm-none-eabi-binutils \
+#     arm-none-eabi-newlib
+
 # Things you may want to change
 PREFIX="/opt"
 TINYGOBUILD="0.23.0"
