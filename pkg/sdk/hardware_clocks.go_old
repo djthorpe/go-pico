@@ -1,5 +1,3 @@
-//go:build rp2040
-
 package sdk
 
 // Module imports
