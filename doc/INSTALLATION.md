@@ -1,66 +1,34 @@
 
 # Installation
 
-Assuming a working operating system on your Raspberry Pi, create an `/opt`
-folder for your installation if it's not already created, and install dependencies:
+The repository installation has been tested on Macintosh (arm64 and aarch64) and Linux (arm).
+For Macintosh, it is assumed [homebrew](https://brew.sh/) is installed. 
 
-```bash
-sudo install -o ${USER} -d /opt && cd /opt
-sudo apt -y install \
-  git wget \
-  cmake gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
-  build-essential pkg-config libusb-1.0-0-dev
+Firstly, install the dependencies:
+
+```zsh
+# Installation of dependencies for macOS
+brew install cmake libusb git wget
+brew tap ArmMbed/homebrew-formulae
+brew install arm-none-eabi-gcc
 ```
 
-Proceed to install a recent version of **golang**:
-
-```bash
-GOBUILD="go1.18.1.linux-armv6l"
-
-cd /opt && wget https://redirector.gvt1.com/edgedl/go/${GOBUILD}.tar.gz  
-install -d "/opt/${GOBUILD}" && tar -C "/opt/${GOBUILD}" -zxvf "${BUILD}.tar.gz" && rm -f "/opt/${GOBUILD}.tar.gz"  
-rm -f /opt/go && cd /opt && ln -s "${GOBUILD}/go" go
+```zsh
+# Installation of dependencies for Fedora Linux
+sudo dnf install gcc-arm-linux-gnu \
+  arm-none-eabi-gcc-cs-c++ arm-none-eabi-gcc-cs \
+  arm-none-eabi-binutils arm-none-eabi-newlib \
+  git wget build-essential cmake pkg-config libusb-1.0-0-dev 
 ```
 
-Proceed to install **tinygo**:
+## Install
 
-```bash
-TINYGOBUILD="0.23.0"
+There is then a script ypu can use to install the remaining dependencies:
 
-cd /opt && wget https://github.com/tinygo-org/tinygo/releases/download/v${TINYGOBUILD}/tinygo${TINYGOBUILD}.linux-arm.tar.gz
-install -d "/opt/tinygo-${TINYGOBUILD}" && tar -C "/opt/tinygo-${TINYGOBUILD}" -zxvf "tinygo${TINYGOBUILD}.linux-arm.tar.gz" && rm -f "/opt/tinygo${TINYGOBUILD}.linux-arm.tar.gz"
-rm -f /opt/tinygo && cd /opt && ln -s "tinygo-${TINYGOBUILD}/tinygo" tinygo
-```
-
-Install [**picosdk**](https://github.com/raspberrypi/pico-sdk) and [**picotool**](https://github.com/raspberrypi/picotool) so that you can flash your Pico:
-
-```bash
-PICOSDK="1.3.1"
-PICOTOOL="1.1.0"
-
-cd /opt && install -d pico && cd /opt/pico \
-  && git clone -q --branch ${PICOSDK} --single-branch git@github.com:raspberrypi/pico-sdk.git pico-sdk-${PICOSDK} \
-  && git clone -q --branch ${PICOTOOL} --single-branch git@github.com:raspberrypi/picotool.git picotool-${PICOTOOL}
-rm -f /opt/pico/sdk && cd /opt/pico && ln -s "pico-sdk-${PICOSDK}" sdk
-rm -f /opt/pico/picotool && cd /opt/pico && ln -s "picotool-${PICOTOOL}" picotool
-cd /opt/pico/picotool && install -d build && cd build && PICO_SDK_PATH=/opt/pico/sdk cmake .. && make && install picotool /opt/pico/bin/picotool 
-```
-
-Add **golang** and **tinygo** to your path:
-
-```bash
-cat >> "${HOME}/.profile" <<EOF
-if [ -x "/opt/go" ] ; then
-  export PATH="\${PATH}:/opt/go/bin"
-fi
-if [ -x "/opt/tinygo" ] ; then
-  export PATH="\${PATH}:/opt/tinygo/bin"
-fi
-if [ -x "/opt/pico" ] ; then
-  export PATH="\${PATH}:/opt/pico/bin"
-  export PICO_SDK_PATH="/opt/pico/sdk"
-fi
-EOF
+```zsh
+GOPICO="0.0.1"
+cd ${HOME} && wget https://github.com/djthorpe/go-pico/archive/refs/tags/${GOPICO}.zip && unzip ${GOPICO}.zip
+go-pico-${GOPICO}/scripts/install-tinygo.sh
 ```
 
 ## Testing Installation
