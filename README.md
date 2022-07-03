@@ -7,3 +7,10 @@ so this is an alternative.
 
 For dependencies and installation, please see [INSTALLATION.md](doc/INSTALLATION.md).
 
+## Versions
+
+This repository currently tracks the following versions:
+
+   * [Pico SDK 1.4.0](https://github.com/raspberrypi/pico-sdk/tree/1.4.0)
+   * [Tinygo 0.24.0](https://github.com/tinygo-org/tinygo/tree/v0.24.0)
+
