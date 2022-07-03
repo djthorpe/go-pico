@@ -1,8 +1,8 @@
 
 # Installation
 
-The repository installation has been tested on Macintosh (arm64 and aarch64) and Linux (arm).
-For Macintosh, it is assumed [homebrew](https://brew.sh/) is installed. 
+The repository installation has been tested on macOS (arm64 and aarch64) and Linux (arm).
+For macOS, it is assumed [homebrew](https://brew.sh/) is installed. 
 
 Firstly, install the dependencies:
 
@@ -31,15 +31,27 @@ cd ${HOME} && wget https://github.com/djthorpe/go-pico/archive/refs/tags/${GOPIC
 go-pico-${GOPICO}/scripts/install-tinygo.sh
 ```
 
-## Testing Installation
+Then, add the following to your .profile
 
-To test you installation, log out and back in again, and then check for **golang** and **tinygo** versions:
+```zsh
+if [ -d "/opt/tinygo" ] ; then
+  export PATH="${PATH}:/opt/tinygo/bin"
+fi
+if [ -d "/opt/bin" ] ; then
+  export PATH="${PATH}:/opt/bin"
+fi
+if [ -d "/opt/pico-sdk" ] ; then
+  export PICO_SDK_PATH="/opt/pico-sdk"
+fi
+```
+
+## Test
+
+To test you installation, log out and back in again, and then check for **tinygo** and **picotool** versions:
 
 ```bash
-bash% go version
-go version go1.18.1 linux/arm
 bash% tinygo version
-tinygo version 0.23.0 linux/arm (using go version go1.18.1 and LLVM version 14.0.0)
+tinygo version 0.24.0 darwin/amd64 (using go version go1.18.1 and LLVM version 14.0.0)
 bash% picotool version
-picotool v1.1.0 (Linux 5.15.32-v7+, GNU-10.2.1, Release
+picotool v1.1.0 (Darwin 21.5.0, AppleClang-13.1.6.13160021, Release)
 ```
