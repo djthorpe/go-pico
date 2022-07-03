@@ -6,7 +6,6 @@
 #  brew install cmake libusb
 #  brew tap ArmMbed/homebrew-formulae
 #  brew install arm-none-eabi-gcc
-
 #
 # fedora:
 #   sudo dnf install gcc-arm-linux-gnu \
@@ -17,8 +16,8 @@
 
 # Things you may want to change
 PREFIX="/opt"
-TINYGOBUILD="0.23.0"
-PICOSDK="1.3.1"
+TINYGOBUILD="0.24.0"
+PICOSDK="1.4.0"
 PICOTOOL="1.1.0"
 
 # Determine OS, Arch and temp directory
@@ -118,7 +117,6 @@ if [ -d "${PREFIX}/${PICOTOOL_DEST}" ]; then
   pushd && cd "${PREFIX}" && ln -s "${PREFIX}/${PICOTOOL_DEST}" picotool && popd || exit -1
 fi
 
-
 # Compile pico-sdk
 if [ -d "${PREFIX}/${PICOSDK_DEST}" ]; then
   pushd
@@ -129,7 +127,6 @@ if [ -d "${PREFIX}/${PICOSDK_DEST}" ]; then
   make || exit -1
   popd
 fi
-
 
 # Compile picotool
 if [ -d "${PREFIX}/${PICOTOOL_DEST}" ]; then
@@ -146,23 +143,24 @@ fi
 if [ -d "${PREFIX}/bin" ]; then
   pushd
   cd "${PREFIX}/bin"
+  install "${PREFIX}/${PICOSDK_DEST}/build/pioasm/pioasm" pioasm || exit -1
   install "${PREFIX}/${PICOSDK_DEST}/build/elf2uf2/elf2uf2" elf2uf2 || exit -1
   install "${PREFIX}/${PICOTOOL_DEST}/build/picotool" picotool || exit -1
   popd
 fi
 
 # Set .profile
-# if [ -x "${HOME}/.zshrc" ] ; then
-#   cat >>"${HOME}/.zshrc" <<EOF
-# if [ -d "${PREFIX}/tinygo" ] ; then
-#     export PATH="\${PATH}:${PREFIX}/tinygo/bin"
-# fi
-# if [ -d "${PREFIX}/bin" ] ; then
-#     export PATH="\${PATH}:/${PREFIX}/bin"
-# fi
-# if [ -d "${PREFIX}/pico-sdk" ] ; then
-#     export PICO_SDK_PATH="${PREFIX}/pico-sdk"
-# fi
-# EOF
-# fi
+echo "Please add the following to your .profile:"
+echo
+cat <<EOF
+if [ -d "${PREFIX}/tinygo" ] ; then
+  export PATH="\${PATH}:${PREFIX}/tinygo/bin"
+fi
+if [ -d "${PREFIX}/bin" ] ; then
+  export PATH="\${PATH}:${PREFIX}/bin"
+fi
+if [ -d "${PREFIX}/pico-sdk" ] ; then
+  export PICO_SDK_PATH="${PREFIX}/pico-sdk"
+fi
+EOF
 
