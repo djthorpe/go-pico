@@ -1,4 +1,4 @@
-//go:build pico
+//go:build !rpi
 
 package pico
 
