@@ -1,8 +1,6 @@
-//go:build debug
+//go:build !debug
 
 package pico
-
-import "fmt"
 
 //////////////////////////////////////////////////////////////////////////////
 // ASSERT
@@ -10,7 +8,6 @@ import "fmt"
 //go:inline
 func assert(cond bool, err error) error {
 	if !cond {
-		fmt.Println(err)
 		return err
 	}
 	return nil

@@ -5,9 +5,9 @@ TINYGO := $(shell which tinygo)
 # Paths to locations, etc
 BUILD_DIR := "build"
 PICO_CMD_DIR := $(filter-out cmd/pico/README.md, $(wildcard cmd/pico/*))
-PICO_BUILD_FLAGS := -target pico
+PICO_BUILD_FLAGS := -target pico -tags "rp2040 debug"
 RPI_CMD_DIR := $(filter-out cmd/rpi/README.md, $(wildcard cmd/rpi/*))
-RPI_BUILD_FLAGS := -tags rpi
+RPI_BUILD_FLAGS := -tags "rpi debug"
 
 # Targets
 all: pico rpi

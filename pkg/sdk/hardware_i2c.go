@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"time"
 	"unsafe"
 
 	// Module imports
@@ -70,7 +69,7 @@ type i2c_groups_t [NUM_I2CS]i2c_t
 // CONSTANTS
 
 var (
-	i2c_groups = [NUM_I2CS](*i2c_t){unsafe.Pointer(rp.I2C0), unsafe.Pointer(rp.I2C1)}
+	i2c_groups = [NUM_I2CS](*i2c_t){(*i2c_t)(unsafe.Pointer(rp.I2C0)), (*i2c_t)(unsafe.Pointer(rp.I2C1))}
 )
 
 //////////////////////////////////////////////////////////////////////////////
@@ -103,8 +102,10 @@ func I2C_init(inst, baudrate uint32) uint32 {
 		rp.I2C0_IC_DMA_CR_TDMAE_ENABLED<<rp.I2C0_IC_DMA_CR_TDMAE_Pos |
 			rp.I2C0_IC_DMA_CR_RDMAE_ENABLED<<rp.I2C0_IC_DMA_CR_RDMAE_Pos)
 
-	// Re-sets i2c->hw->enable upon returning:
-	return I2C_set_baudrate(inst, baudrate)
+	// Re-sets i2c->hw->enable upon returning
+	//TODO
+	// return I2C_set_baudrate(inst, baudrate)
+	return 0
 }
 
 // Disable the I2C HW block
@@ -145,6 +146,7 @@ func I2C_reserved_addr(addr uint8) bool {
 	return (addr&0x78) == 0 || (addr&0x78) == 0x78
 }
 
+/*
 // Determine the I2C instance that is attached to the specified GPIO
 // pins for SDA and SCL
 //
@@ -178,3 +180,4 @@ func i2c_write_blocking_until(inst uint32, addr uint8, w []byte, nostop bool, un
 func i2c_read_blocking_until(inst uint32, addr uint8, r []byte, nostop bool, until time.Duration) {
 	// TODO
 }
+*/
