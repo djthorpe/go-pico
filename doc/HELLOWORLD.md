@@ -58,7 +58,7 @@ LED.PWM().SetEnabled(true)
 LED.PWM().SetInterrupt(on_pwm_wrap)
 ```
 
-The interrput handler is called when the PWM counter wraps, which cycles through values 0 to 255, in order to provide varying length pulses. In order to compile and run the code, plug in your Pico and ensure it's in BOOTSEL mode. A `Makefile` is used to compile the code, which is then placed in the `build` folder. So,
+The interrupt handler is called when the PWM counter wraps, which cycles through values 0 to 255, in order to provide varying length pulses. In order to compile and run the code, plug in your Pico and ensure it's in BOOTSEL mode. A `Makefile` is used to compile the code, which is then placed in the `build` folder. So,
 
 ```shell
 cd go-pico
@@ -66,7 +66,10 @@ make cmd/helloworld
 picotool load -x build/helloworld.uf2
 ```
 
-Next, you can read about how each module works:
+Although there is no console output, you can install a serial terminal program such as `minicom` to see console output for other examples. Next, you can read about how to use each module:
 
   * Pulse Width Modulation [PWM](PWM.md)
   * General Purpose IO [GPIO](GPIO.md)
+  * Analog to Digital Converter [ADC](ADC.md)
+
+

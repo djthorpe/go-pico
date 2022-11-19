@@ -1,8 +1,6 @@
 # go-pico
 
-This repository contains a tinygo implementation of the  Raspberry Pi Pico (RP2040) Microcontroller
-and everything else you need in order to start developing golang on the 
-RP2040  with [tinygo](https://tinygo.org/). The support for some SDK features are missing in tinygo, so this is an alternative which more closely tracks the [Pico SDK](https://github.com/raspberrypi/pico-sdk).
+This repository contains a tinygo implementation of the Raspberry Pi Pico (RP2040) Microcontroller and everything else you need in order to start developing golang on the RP2040  with [tinygo](https://tinygo.org/). The support for some SDK features are missing in tinygo, so this is an alternative which more closely tracks the [Pico SDK](https://github.com/raspberrypi/pico-sdk).
 
   * For dependencies and installation, please see [INSTALLATION.md](doc/INSTALLATION.md).
   * Once installed, you can compile and run the [HELLOWORLD.md](doc/HELLOWORLD.md) example.

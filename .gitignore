@@ -10,3 +10,4 @@
 *.uf2
 vendor/
 build/
+.DS_Store

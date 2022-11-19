@@ -3,7 +3,6 @@
 package pico
 
 import (
-	"fmt"
 
 	// Module imports
 	rp "device/rp"
@@ -27,16 +26,14 @@ type gpio struct {
 // LIFECYCLE
 
 // Create a new GPIO object
-//
 func _NewGPIO() *gpio {
 	g := &gpio{}
 	g.init = make([]bool, NUM_BANK0_GPIOS)
-	g.intr = interrupt.New(rp.IRQ_IO_IRQ_BANK0, gpio_intr_handler)
+	g.intr = interrupt.New(rp.IRQ_IO_IRQ_BANK0, GPIO_default_irq_handler)
 	return g
 }
 
 // Close GPIO device, return each pin to NULL state
-//
 func (g *gpio) Close() error {
 	for pin := Pin(0); pin < NUM_BANK0_GPIOS; pin++ {
 		if g.init[pin] {
@@ -49,40 +46,9 @@ func (g *gpio) Close() error {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-// PRIVATE METHODS - INTERRUPTS
-
-// Handle interrupts
-func gpio_intr_handler(interrupt.Interrupt) {
-	fmt.Println("Got intr")
-	for pin := GPIO_pin(0); pin < NUM_BANK0_GPIOS; pin++ {
-		// Get the change for this pin
-
-		GPIO_acknowledge_irq(pin, 0xF)
-	}
-	// TODO
-	/*
-			io_irq_ctrl_hw_t *irq_ctrl_base = get_core_num() ?
-		                                           &iobank0_hw->proc1_irq_ctrl : &iobank0_hw->proc0_irq_ctrl;
-		    for (uint gpio = 0; gpio < NUM_BANK0_GPIOS; gpio++) {
-		        io_ro_32 *status_reg = &irq_ctrl_base->ints[gpio / 8];
-		        uint events = (*status_reg >> 4 * (gpio % 8)) & 0xf;
-		        if (events) {
-		            // TODO: If both cores care about this event then the second core won't get the irq?
-		            gpio_acknowledge_irq(gpio, events);
-		            gpio_irq_callback_t callback = _callbacks[get_core_num()];
-		            if (callback) {
-		                callback(gpio, events);
-		            }
-		        }
-		    }
-	*/
-}
-
-//////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
 
 // Initialise a single pin to a specific mode
-//
 func (g *gpio) setmode(pin Pin, mode Mode) error {
 	if err := assert(pin < NUM_BANK0_GPIOS, ErrBadParameter); err != nil {
 		return err
@@ -141,7 +107,6 @@ func (g *gpio) setmode(pin Pin, mode Mode) error {
 }
 
 // Resets a GPIO back to the NULL function
-//
 func (g *gpio) deinit(pin Pin) {
 	if g.init[pin] {
 		g.setInterrupt(pin, nil)
@@ -151,7 +116,6 @@ func (g *gpio) deinit(pin Pin) {
 }
 
 // Get mode on a pin
-//
 func (g *gpio) mode(pin Pin) (Mode, error) {
 	if err := assert(pin < NUM_BANK0_GPIOS, ErrBadParameter); err != nil {
 		return 0, err
@@ -184,7 +148,6 @@ func (g *gpio) mode(pin Pin) (Mode, error) {
 }
 
 // Get pin state
-//
 func (g *gpio) get(pin Pin) (bool, error) {
 	if err := assert(pin < NUM_BANK0_GPIOS, ErrBadParameter); err != nil {
 		return false, err
@@ -198,7 +161,6 @@ func (g *gpio) get(pin Pin) (bool, error) {
 }
 
 // Set pin state
-//
 func (g *gpio) set(pin Pin, value bool) error {
 	if err := assert(pin < NUM_BANK0_GPIOS, ErrBadParameter); err != nil {
 		return err
@@ -213,7 +175,6 @@ func (g *gpio) set(pin Pin, value bool) error {
 }
 
 // Return PWM device on a pin
-//
 func (g *gpio) pwm(pin Pin) (*PWM, error) {
 	// Check parameters
 	if err := assert(pin < NUM_BANK0_GPIOS, ErrBadParameter); err != nil {
@@ -232,7 +193,6 @@ func (g *gpio) pwm(pin Pin) (*PWM, error) {
 }
 
 // Return ADC device on a pin
-//
 func (g *gpio) adc(pin Pin) (*ADC, error) {
 	// Check parameters
 	if err := assert(pin < NUM_BANK0_GPIOS, ErrBadParameter.With(pin)); err != nil {
@@ -274,9 +234,7 @@ func (g *gpio) adc(pin Pin) (*ADC, error) {
 // TODO
 
 // Add pin handler
-//
 func (g *gpio) setInterrupt(pin Pin, handler func(pin Pin)) {
-	// TODO
 	if handler != nil {
 		// Enable interrupt handler
 		GPIO_set_irq_enabled(GPIO_pin(pin), GPIO_IRQ_EDGE_RISE|GPIO_IRQ_EDGE_FALL, true)
