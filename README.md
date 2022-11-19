@@ -12,7 +12,7 @@ For dependencies and installation, please see [INSTALLATION.md](doc/INSTALLATION
 This repository currently tracks the following versions:
 
    * [Pico SDK 1.4.0](https://github.com/raspberrypi/pico-sdk/tree/1.4.0)
-   * [tinygo 0.24.0](https://github.com/tinygo-org/tinygo/tree/v0.24.0)
+   * [tinygo 0.26.0](https://github.com/tinygo-org/tinygo/tree/v0.26.0)
 
 ## Contributing & Distribution
 

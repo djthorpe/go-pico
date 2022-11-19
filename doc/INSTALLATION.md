@@ -8,7 +8,7 @@ Firstly, install the dependencies:
 
 ```zsh
 # Installation of dependencies for macOS
-brew install cmake libusb git wget
+brew install cmake libusb git wget pkgconfig
 brew tap ArmMbed/homebrew-formulae
 brew install arm-none-eabi-gcc
 ```
@@ -23,7 +23,7 @@ sudo dnf install gcc-arm-linux-gnu \
 
 ## Install
 
-There is then a script ypu can use to install the remaining dependencies:
+There is then a script you can use to install the remaining dependencies:
 
 ```zsh
 GOPICO="0.0.1"
@@ -51,7 +51,9 @@ To test you installation, log out and back in again, and then check for **tinygo
 
 ```bash
 bash% tinygo version
-tinygo version 0.24.0 darwin/amd64 (using go version go1.18.1 and LLVM version 14.0.0)
+tinygo version 0.26.0 darwin/amd64 (using go version go1.19.3 and LLVM version 14.0.0)
 bash% picotool version
 picotool v1.1.0 (Darwin 21.5.0, AppleClang-13.1.6.13160021, Release)
 ```
+
+Proceed to compile the [helloworld](HELLOWORLD.md) example!

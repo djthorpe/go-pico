@@ -16,7 +16,7 @@
 
 # Things you may want to change
 PREFIX="/opt"
-TINYGOBUILD="0.24.0"
+TINYGOBUILD="0.26.0"
 PICOSDK="1.4.0"
 PICOTOOL="1.1.0"
 
