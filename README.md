@@ -6,7 +6,7 @@ RP2040  with [tinygo](https://tinygo.org/). The support for some SDK features ar
 so this is an alternative.
 
   * For dependencies and installation, please see [INSTALLATION.md](doc/INSTALLATION.md).
-  * Once installed, you can compile and run the [helloworld](doc/HELLOWORLD.md) example.
+  * Once installed, you can compile and run the [HELLOWORLD.md](doc/HELLOWORLD.md) example.
 
 ## Versions
 
@@ -14,6 +14,11 @@ This repository currently tracks the following versions:
 
    * [Pico SDK 1.4.0](https://github.com/raspberrypi/pico-sdk/tree/1.4.0)
    * [tinygo 0.26.0](https://github.com/tinygo-org/tinygo/tree/v0.26.0)
+
+## Documentation
+
+  * General Purpose IO [GPIO](GPIO.md)
+  * Pulse Width Modulation [PWM](PWM.md)
 
 ## Contributing & Distribution
 
