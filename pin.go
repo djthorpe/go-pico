@@ -19,19 +19,16 @@ func (p Pin) Mode() Mode {
 }
 
 // Set pin mode
-//
 func (p Pin) SetMode(mode Mode) error {
 	return _GPIO.setmode(p, mode)
 }
 
 // Set pin state
-//
 func (p Pin) Set(value bool) {
 	_GPIO.set(p, value)
 }
 
 // Get pin state
-//
 func (p Pin) Get() bool {
 	v, _ := _GPIO.get(p)
 	return v
@@ -56,7 +53,6 @@ func (p Pin) ADC() *ADC {
 }
 
 // Set pin interrupt
-//
 func (p Pin) SetInterrupt(callback Pin_callback_t) {
 	_GPIO.setInterrupt(p, callback)
 }
