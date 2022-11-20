@@ -10,6 +10,8 @@ import (
 //////////////////////////////////////////////////////////////////////////////
 // TYPES
 
+// ADC represents an Analog to Digital Converter. On the RP2040, there are
+// four ADC's.
 type ADC struct {
 	ch   uint32
 	temp bool
@@ -45,7 +47,6 @@ func _NewADC(ch uint32) *ADC {
 // PUBLIC METHODS
 
 // Get returns the raw ADC value, which is the first 12 bits
-//
 func (a *ADC) Get() uint16 {
 	ADC_select_input(a.ch)
 	for {
@@ -65,7 +66,6 @@ func (a *ADC) GetVoltage(vref float32) float32 {
 // temperature sensor and returns a celsius reading.
 //
 // Only works on the  channel. Other channels will return 0
-//
 func (a *ADC) GetTemperature() float32 {
 	if a.ch != ADC_temperature_input() {
 		return 0

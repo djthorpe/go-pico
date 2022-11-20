@@ -229,21 +229,53 @@ func (g *gpio) adc(pin Pin) (*ADC, error) {
 	return adc[ch], nil
 }
 
-// Return UART device on a pin
-//
-// TODO
+// Return SPI device on a pin
+func (g *gpio) spi(pin Pin) (*SPI, error) {
+	// Check parameters
+	if err := assert(pin < NUM_BANK0_GPIOS, ErrBadParameter.With(pin)); err != nil {
+		return nil, err
+	}
+	// Get SPI device
+	spi, exists := map_spi[pin]
+	if !exists {
+		return nil, ErrBadParameter.With(pin)
+	}
+	// Set mode
+	if err := g.setmode(spi.RX, ModeSPI); err != nil {
+		return nil, err
+	}
+	if err := g.setmode(spi.TX, ModeSPI); err != nil {
+		return nil, err
+	}
+	if err := g.setmode(spi.SCK, ModeSPI); err != nil {
+		return nil, err
+	}
+	// Set chip select pin
+	if err := g.setmode(spi.CS, ModeOutput); err != nil {
+		return nil, err
+	} else if err := g.set(spi.CS, true); err != nil {
+		return nil, err
+	}
+	// Initalize SPI device
+	return _NewSPI(spi), nil
+}
 
 // Add pin handler
-func (g *gpio) setInterrupt(pin Pin, handler func(pin Pin)) {
+func (g *gpio) setInterrupt(pin Pin, handler func(pin Pin, state State)) error {
 	if handler != nil {
 		// Enable interrupt handler
-		GPIO_set_irq_enabled(GPIO_pin(pin), GPIO_IRQ_EDGE_RISE|GPIO_IRQ_EDGE_FALL, true)
+		GPIO_set_irq_enabled(GPIO_pin(pin), GPIO_IRQ_EDGE_RISE|GPIO_IRQ_EDGE_FALL, func(p GPIO_pin, e GPIO_irq_level) {
+			handler(Pin(p), State(e))
+		})
 		// Enable ARM interrupt
 		g.intr.Enable()
 	} else {
 		// Diable ARM interrupt
 		g.intr.Disable()
 		// Disable interrupt handler
-		GPIO_set_irq_enabled(GPIO_pin(pin), GPIO_IRQ_EDGE_RISE|GPIO_IRQ_EDGE_FALL, false)
+		GPIO_set_irq_enabled(GPIO_pin(pin), GPIO_IRQ_EDGE_RISE|GPIO_IRQ_EDGE_FALL, nil)
 	}
+
+	// Return success
+	return nil
 }

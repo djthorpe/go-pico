@@ -27,5 +27,6 @@ const (
 	StateFall
 	StateRise
 	StateNone State = 0
+	StateMin        = StateLow
 	StateMax        = StateRise
 )

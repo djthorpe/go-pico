@@ -1,14 +1,13 @@
 package main
 
 import (
-	// Namespace imports
 	. "github.com/djthorpe/go-pico"
 )
 
 // Define the pins used
 var (
-	LED    = Pin(25)
-	BUTTON = Pin(23) // BOOTSEL pin on the Pico Lipo
+	LED    = Pin(25) // On-board LED
+	BUTTON = Pin(23) // BOOTSEL button on the Pico Lipo
 )
 
 // Main function
@@ -23,6 +22,8 @@ func main() {
 }
 
 // Called when the button is pressed or released
-func on_button(Pin) {
-	LED.Set(!LED.Get())
+func on_button(p Pin, s State) {
+	if p == BUTTON && s&StateRise != 0 {
+		LED.Set(!LED.Get())
+	}
 }

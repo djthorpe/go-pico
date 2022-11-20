@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"fmt"
 	"unsafe"
 
 	// Module imports
@@ -22,6 +21,7 @@ type GPIO_override uint8
 type GPIO_slew_rate uint8
 type GPIO_drive_strength uint8
 type GPIO_pin uint8
+type GPIO_irq_callback_t func(p GPIO_pin, e GPIO_irq_level)
 
 type gpio_pads_bank0_t struct {
 	voltage_select volatile.Register32
@@ -46,8 +46,6 @@ type gpio_bank0_t struct {
 	proc1IRQctrl       gpio_irqctrl_t
 	dormantWakeIRQctrl gpio_irqctrl_t
 }
-
-type gpio_irq_callback_t func(interrupt.Interrupt)
 
 //////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
@@ -102,8 +100,7 @@ const (
 var (
 	gpio_pads_bank0   = (*gpio_pads_bank0_t)(unsafe.Pointer(rp.PADS_BANK0))
 	gpio_io_bank0     = (*gpio_bank0_t)(unsafe.Pointer(rp.IO_BANK0))
-	gpio_irq_callback = [NUM_CORES]gpio_irq_callback_t{}
-	gpio_raw_irq_mask = [NUM_CORES]uint32{}
+	gpio_irq_callback = [NUM_CORES][NUM_BANK0_GPIOS]GPIO_irq_callback_t{}
 )
 
 //////////////////////////////////////////////////////////////////////////////
@@ -277,15 +274,24 @@ func GPIO_get_drive_strength(pin GPIO_pin) GPIO_drive_strength {
 //////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS - INTERRUPT
 
-func GPIO_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, enabled bool) {
+func GPIO_set_irq_enabled(pin GPIO_pin, events GPIO_irq_level, fn GPIO_irq_callback_t) {
 	assert(pin < NUM_BANK0_GPIOS)
 	assert(events <= (GPIO_IRQ_LEVEL_MAX<<1)-1)
 
+	// Set enabled flag
+	var enabled bool
+	if fn != nil {
+		enabled = true
+	}
+
+	// Enable IRQ
 	switch get_core_num() {
 	case 0:
 		gpio_set_irq_enabled(pin, events, enabled, &gpio_io_bank0.proc0IRQctrl)
+		gpio_irq_callback[0][pin] = fn
 	case 1:
 		gpio_set_irq_enabled(pin, events, enabled, &gpio_io_bank0.proc1IRQctrl)
+		gpio_irq_callback[1][pin] = fn
 	default:
 		assert(false)
 	}
@@ -297,19 +303,12 @@ func GPIO_acknowledge_irq(pin GPIO_pin, events GPIO_irq_level) {
 	gpio_acknowledge_irq(pin, events)
 }
 
-func GPIO_irq_status(pin GPIO_pin) GPIO_irq_level {
-	assert(pin < NUM_BANK0_GPIOS)
-	return gpio_irq_status(pin)
-}
-
 func GPIO_default_irq_handler(interrupt.Interrupt) {
 	switch get_core_num() {
 	case 0:
-		fmt.Println("IRQ Handler 0")
-		gpio_default_irq_handler(gpio_irq_callback[0], &gpio_io_bank0.proc0IRQctrl, gpio_raw_irq_mask[0])
+		gpio_default_irq_handler(&gpio_io_bank0.proc0IRQctrl, 0)
 	case 1:
-		fmt.Println("IRQ Handler 1")
-		gpio_default_irq_handler(gpio_irq_callback[1], &gpio_io_bank0.proc1IRQctrl, gpio_raw_irq_mask[1])
+		gpio_default_irq_handler(&gpio_io_bank0.proc1IRQctrl, 1)
 	default:
 		assert(false)
 	}
@@ -456,28 +455,19 @@ func gpio_acknowledge_irq(pin GPIO_pin, events GPIO_irq_level) {
 }
 
 //go:inline
-func gpio_irq_status(pin GPIO_pin) GPIO_irq_level {
-	offset := uint32(pin) >> 3
-	gpio_io_bank0.intr[offset].Get()
-	return GPIO_IRQ_LEVEL_NONE
-}
-
-//go:inline
-func gpio_default_irq_handler(callback gpio_irq_callback_t, base *gpio_irqctrl_t, mask uint32) {
-	fmt.Println("gpio_default_irq_handler")
+func gpio_default_irq_handler(base *gpio_irqctrl_t, core int) {
+	// Cycle through pins (4 bits per pin, 8 pins at a time)
 	for pin := GPIO_pin(0); pin < NUM_BANK0_GPIOS; pin += 8 {
-		events8 := base.ints[pin>>3]
-		fmt.Printf("Pin=%v Events8=%08X\n", pin, events8)
-		// note we assume events8 is 0 for non-existent GPIO
-		//for i := pin; events8 && i < pin+8; i++ {
-		//	events := events8 & 0x0F
-		//	if events && (mask&(1<<i) == 0) {
-		//		gpio_acknowledge_irq(i, events)
-		//		if callback != nil {
-		//			callback(i, events)
-		//		}
-		//	}
-		//	events8 >>= 4
-		//}
+		events8 := base.ints[pin>>3].Get()
+		for i := pin; i < pin+8; i++ {
+			events := events8 & 0x0F
+			if events != 0 {
+				gpio_acknowledge_irq(i, GPIO_irq_level(events))
+				if callback := gpio_irq_callback[core][i]; callback != nil {
+					callback(i, GPIO_irq_level(events))
+				}
+			}
+			events8 >>= 4
+		}
 	}
 }

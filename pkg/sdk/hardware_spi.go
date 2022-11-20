@@ -47,7 +47,6 @@ var (
 // PUBLIC METHODS
 
 // Reset SPI
-//
 func SPI_reset(spi uint32) {
 	assert(spi < NUM_SPIS)
 	switch spi {
@@ -60,7 +59,6 @@ func SPI_reset(spi uint32) {
 }
 
 // Unreset SPI
-//
 func SPI_unreset(spi uint32) {
 	assert(spi < NUM_SPIS)
 	switch spi {
@@ -72,8 +70,7 @@ func SPI_unreset(spi uint32) {
 }
 
 // Initialise SPI instances
-//
-func SPI_init(spi, baudrate uint32) {
+func SPI_init(spi, baudrate uint32) uint32 {
 	assert(spi < NUM_SPIS)
 	SPI_reset(spi)
 	SPI_unreset(spi)
@@ -86,15 +83,31 @@ func SPI_init(spi, baudrate uint32) {
 
 	// Finally enable the SPI
 	spi_groups[spi].SSPCR1.SetBits(rp.SPI0_SSPCR1_SSE)
+
+	// Return the actual baudrate
+	return baudrate
 }
 
 // Deinitialise SPI instances
-//
 func SPI_deinit(spi uint32) {
 	assert(spi < NUM_SPIS)
 	spi_groups[spi].SSPCR1.ClearBits(rp.SPI0_SSPCR1_SSE)
 	spi_groups[spi].SSPDMACR.ClearBits(rp.SPI0_SSPDMACR_TXDMAE | rp.SPI0_SSPDMACR_RXDMAE)
 	SPI_reset(spi)
+}
+
+// Configure SPI
+//
+// Must be SPI_MSB_FIRST, no other values supported on the PL022
+func SPI_set_format(spi uint32, data_bits uint8, cpol SPI_cpol_t, cpha SPI_cpha_t, order SPI_order_t) {
+	assert(spi < NUM_SPIS)
+	assert(data_bits >= 4 && data_bits <= 16)
+	assert(cpol == SPI_CPOL_0 || cpol == SPI_CPOL_1)
+	assert(cpha == SPI_CPHA_0 || cpha == SPI_CPHA_1)
+	assert(order == SPI_MSB_FIRST)
+	v := uint32(uint32(data_bits-1)<<rp.SPI0_SSPCR0_DSS_Pos | uint32(cpol)<<rp.SPI0_SSPCR0_SPO_Pos | uint32(cpha)<<rp.SPI0_SSPCR0_SPH_Pos)
+	m := uint32(rp.SPI0_SSPCR0_DSS_Msk | rp.SPI0_SSPCR0_SPO_Msk | rp.SPI0_SSPCR0_SPH_Msk)
+	spi_groups[spi].SSPCR0.ReplaceBits(v, m, 0)
 }
 
 /*
@@ -129,21 +142,7 @@ func SPI_set_baudrate(spi, baudrate uint32) uint32 {
 }
 */
 
-// Configure SPI
-//
-// Must be SPI_MSB_FIRST, no other values supported on the PL022
-//
-func SPI_set_format(spi uint32, data_bits uint8, cpol SPI_cpol_t, cpha SPI_cpha_t, order SPI_order_t) {
-	assert(spi < NUM_SPIS)
-	assert(data_bits >= 4 && data_bits <= 16)
-	assert(cpol == SPI_CPOL_0 || cpol == SPI_CPOL_1)
-	assert(cpha == SPI_CPHA_0 || cpha == SPI_CPHA_1)
-	assert(order == SPI_MSB_FIRST)
-	v := uint32(uint32(data_bits-1)<<rp.SPI0_SSPCR0_DSS_Pos | uint32(cpol)<<rp.SPI0_SSPCR0_SPO_Pos | uint32(cpha)<<rp.SPI0_SSPCR0_SPH_Pos)
-	m := uint32(rp.SPI0_SSPCR0_DSS_Msk | rp.SPI0_SSPCR0_SPO_Msk | rp.SPI0_SSPCR0_SPH_Msk)
-	spi_groups[spi].SSPCR0.ReplaceBits(v, m, 0)
-}
-
+/*
 // Set SPI master/slave
 //
 // By default, spi_init() sets master-mode
@@ -199,8 +198,6 @@ func SPI_write_read_blocking(spi uint32, w, r []uint8) {
 	}
 }
 
-/*
-
 // Write to an SPI device, blocking
 //
 func SPI_write_blocking(spi_inst_t *spi, w []uint8) uint32
@@ -225,9 +222,9 @@ func SPI_write16_blocking(spi uint32, w []uint16) uint32
 // a known data rate. repeated_tx_data is output repeatedly on TX as data is read in from RX
 //
 func SPI_read16_blocking(spi uint32, repeated_tx_data uint16, w []uint16) uint32
-*/
 
-/*
+
+
 	SSPCR0       volatile.Register32 // 0x0
 	SSPCR1       volatile.Register32 // 0x4
 	SSPDR        volatile.Register32 // 0x8

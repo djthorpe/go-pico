@@ -4,7 +4,7 @@ package pico
 // TYPES
 
 type Pin uint
-type Pin_callback_t func(Pin)
+type Pin_callback_t func(Pin, State)
 
 //////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS
@@ -49,6 +49,15 @@ func (p Pin) ADC() *ADC {
 		return nil
 	} else {
 		return adc
+	}
+}
+
+// Get SPI for pin
+func (p Pin) SPI() *SPI {
+	if spi, err := _GPIO.spi(p); err != nil {
+		return nil
+	} else {
+		return spi
 	}
 }
 

@@ -40,7 +40,7 @@ func (v State) String() string {
 		return v._String()
 	}
 	str := ""
-	for f := StateNone; f <= StateMax; f <<= 1 {
+	for f := StateMin; f <= StateMax; f <<= 1 {
 		if v&f != 0 {
 			str += "|" + f._String()
 		}
