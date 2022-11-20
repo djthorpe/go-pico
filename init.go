@@ -25,8 +25,4 @@ func init() {
 	for slice_num := uint32(0); slice_num < NUM_PWM_SLICES; slice_num++ {
 		_NewPWM(slice_num)
 	}
-	// Initalise ADC
-	for ch := uint32(0); ch < NUM_ADC_CHANNELS; ch++ {
-		_NewADC(ch)
-	}
 }

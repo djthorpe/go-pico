@@ -62,11 +62,10 @@ The interrupt handler is called when the PWM counter wraps, which cycles through
 
 ```shell
 cd go-pico
-make cmd/helloworld
-picotool load -x build/helloworld.uf2
+make cmd/helloworld && picotool load -x build/helloworld.uf2
 ```
 
-Although there is no console output, you can install a serial terminal program such as `minicom` to see console output for other examples. Next, you can read about how to use each module:
+Next, you can read about how to use each module:
 
   * Pulse Width Modulation [PWM](PWM.md)
   * General Purpose IO [GPIO](GPIO.md)

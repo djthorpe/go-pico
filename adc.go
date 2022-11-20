@@ -1,4 +1,4 @@
-//go:build !rpi
+//go:build pico
 
 package pico
 
@@ -13,34 +13,9 @@ import (
 // ADC represents an Analog to Digital Converter. On the RP2040, there are
 // four ADC's.
 type ADC struct {
-	ch   uint32
+	Pin  Pin
+	Num  uint32
 	temp bool
-}
-
-//////////////////////////////////////////////////////////////////////////////
-// CONSTANTS
-
-var (
-	adc = [NUM_ADC_CHANNELS]*ADC{}
-)
-
-//////////////////////////////////////////////////////////////////////////////
-// LIFECYCLE
-
-func _NewADC(ch uint32) *ADC {
-	if ch > ADC_temperature_input() {
-		return nil
-	} else if adc := adc[ch]; adc != nil {
-		return adc
-	}
-
-	// Initialise a new ADC
-	adc[ch] = &ADC{
-		ch: ch,
-	}
-
-	// Return the ADC
-	return adc[ch]
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -48,7 +23,7 @@ func _NewADC(ch uint32) *ADC {
 
 // Get returns the raw ADC value, which is the first 12 bits
 func (a *ADC) Get() uint16 {
-	ADC_select_input(a.ch)
+	ADC_select_input(a.Num)
 	for {
 		if ADC_is_ready() {
 			break
@@ -65,9 +40,9 @@ func (a *ADC) GetVoltage(vref float32) float32 {
 // Return temperature ReadTemperature does a one-shot sample of the internal
 // temperature sensor and returns a celsius reading.
 //
-// Only works on the  channel. Other channels will return 0
+// Only works on channel five. Other channels will return 0
 func (a *ADC) GetTemperature() float32 {
-	if a.ch != ADC_temperature_input() {
+	if a.Num != ADC_temperature_input() {
 		return 0
 	}
 	if a.temp == false {

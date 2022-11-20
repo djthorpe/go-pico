@@ -5,7 +5,7 @@ TINYGO := $(shell which tinygo)
 # Paths to locations, etc
 BUILD_DIR := "build"
 CMD_DIR := $(filter-out cmd/_old, $(wildcard cmd/*))
-PICO_BUILD_FLAGS := -target pico -tags "rp2040 debug"
+PICO_BUILD_FLAGS := -target=pico -tags "debug" # Inherit tags pico and rp2040
 
 # Targets
 all: $(CMD_DIR)

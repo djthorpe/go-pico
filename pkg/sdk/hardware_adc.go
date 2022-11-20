@@ -42,7 +42,6 @@ var (
 // METHODS
 
 // Initialise the ADC
-//
 func ADC_init() {
 	// ADC is in an unknown state. We should start by resetting it
 	reset_block(rp.RESETS_RESET_ADC)

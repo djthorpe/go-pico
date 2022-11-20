@@ -9,6 +9,9 @@ import "fmt"
 
 func (v *ADC) String() string {
 	str := "<adc"
-	str += fmt.Sprint(" ch=", v.ch)
+	if v.Pin != 0 {
+		str += fmt.Sprint(" pin=", v.Pin)
+	}
+	str += fmt.Sprint(" ch=", v.Num)
 	return str + ">"
 }
